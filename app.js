@@ -2427,14 +2427,16 @@ async function syncRosterToCloud(isAuto = false) {
 }
 
 // 從雲端同步 (GET)
-async function syncRosterFromCloud() {
+async function syncRosterFromCloud(isSilent = false) {
   const url = state.googleWebAppUrl || document.getElementById('input-web-app-url').value.trim();
   if (!url) {
-    alert('請先輸入 Google Apps Script 網頁應用程式網址！');
+    if (!isSilent) {
+      alert('請先輸入 Google Apps Script 網頁應用程式網址！');
+    }
     return;
   }
   
-  if (state.hasUnsavedChanges) {
+  if (state.hasUnsavedChanges && !isSilent) {
     const confirmDiscard = confirm('您有未儲存的變更！從雲端同步會覆蓋目前的所有變更，確定要繼續嗎？');
     if (!confirmDiscard) return;
   }
@@ -2463,10 +2465,14 @@ async function syncRosterFromCloud() {
       state.roster = cloudState.roster || {};
       state.theme = cloudState.theme || 'dark';
       
+      // 關鍵修復：從雲端下載時同步解壓並載入歷史班表 archives 陣列
+      state.archives = cloudState.archives || [];
+      
       state.backupRoster = JSON.parse(JSON.stringify(state.roster));
       state.hasUnsavedChanges = false;
       
       saveToLocalStorage();
+      rebuildSortedStaffIds(); // 重建排序
       
       populateYearMonthSelectors();
       renderAll();
@@ -2476,14 +2482,18 @@ async function syncRosterFromCloud() {
       localStorage.setItem('aura_roster_last_sync', nowStr);
       
       updateSyncStatus('connected', '已連接', 'var(--accent-green)', nowStr, '已成功從 Google Sheets 同步最新狀態！');
-      alert('已成功從雲端同步最新班表與設定！');
+      if (!isSilent) {
+        alert('已成功從雲端同步最新班表與設定！');
+      }
     } else {
       throw new Error('雲端返回的資料結構不正確或為空（請先執行一次「備份到雲端」以寫入初始狀態）。');
     }
   } catch (err) {
     console.error("雲端下載失敗:", err);
     updateSyncStatus('disconnected', '連線失敗', 'var(--accent-red)', null, `下載失敗: ${err.message}`);
-    alert(`從雲端同步失敗：${err.message}\n請確認雲端是否有備份資料，且 Apps Script 部署設定正確。`);
+    if (!isSilent) {
+      alert(`從雲端同步失敗：${err.message}\n請確認雲端是否有備份資料，且 Apps Script 部署設定正確。`);
+    }
   }
 }
 
@@ -2649,6 +2659,7 @@ function archiveCurrentRoster() {
   
   saveToLocalStorage();
   renderArchiveList();
+  syncRosterToCloud(true); // 自動備份至雲端
   alert('當前班表已成功封存至歷史記錄中！');
 }
 
@@ -2690,6 +2701,7 @@ function importArchiveFromFile(e) {
       
       saveToLocalStorage();
       renderArchiveList();
+      syncRosterToCloud(true); // 自動備份至雲端
       alert(`檔案「${fileName}」已成功解析並儲存至歷史清單中！`);
     } catch (err) {
       alert('解析檔案失敗：' + err.message);
@@ -2846,6 +2858,7 @@ function deleteArchive(archiveId) {
     state.archives = state.archives.filter(arch => arch.id !== archiveId);
     saveToLocalStorage();
     renderArchiveList();
+    syncRosterToCloud(true); // 自動備份至雲端
   }
 }
 
@@ -2856,6 +2869,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // 1. 初始化資料庫與狀態
   initDatabase();
   populateYearMonthSelectors();
+
+  // 偵測到配置的雲端同步網址，正在自動載入最新雲端班表與歷史封存...
+  if (state.googleWebAppUrl) {
+    console.log("偵測到配置的雲端同步網址，正在自動載入最新雲端班表與歷史封存...");
+    setTimeout(() => {
+      syncRosterFromCloud(true);
+    }, 500);
+  }
 
   // 2. 年月/天數變動重繪監聽
   const yearSelect = document.getElementById('schedule-year');
