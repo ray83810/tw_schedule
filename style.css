@@ -726,6 +726,19 @@ h1, h2, h3, h4 {
   border-color: var(--border-color-focus);
 }
 
+.staff-card.dragging {
+  opacity: 0.4;
+  border: 1px dashed var(--accent-color, #2563eb);
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.staff-card.drag-over {
+  border-color: var(--accent-color, #2563eb);
+  background: rgba(37, 99, 235, 0.1);
+  transform: scale(0.98);
+  transition: all 0.2s ease;
+}
+
 .staff-card-info {
   display: flex;
   align-items: center;

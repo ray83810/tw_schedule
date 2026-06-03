@@ -19,6 +19,8 @@ const state = {
   archives: []               // 歷史班表封存清單
 };
 
+let dragSrcEl = null;
+
 // 2. 預設測試資料 (Initial Seeds)
 const DEFAULT_STAFF = [
   {
@@ -165,6 +167,7 @@ function initDatabase() {
   }
   
   applyTheme(state.theme);
+  sortStaffByShift();
   rebuildSortedStaffIds();
 }
 
@@ -173,6 +176,7 @@ function loadDefaults() {
   state.currentMonth = 4; // 五月
   state.daysOff = 8;
   state.staff = JSON.parse(JSON.stringify(DEFAULT_STAFF));
+  sortStaffByShift();
   state.shifts = JSON.parse(JSON.stringify(DEFAULT_SHIFTS));
   state.coverageTargets = JSON.parse(JSON.stringify(DEFAULT_COVERAGE));
   state.roster = {}; // 預設空班表
@@ -281,10 +285,8 @@ function getPreviousMonthBoundaryStats(empId, year, month) {
 }
 
 // 4.5. 穩定排班列排序管理器 (Stable Row Sorting Manager)
-function rebuildSortedStaffIds() {
-  const staffList = state.staff;
-  
-  const sorted = [...staffList].sort((emp1, emp2) => {
+function sortStaffByShift() {
+  state.staff.sort((emp1, emp2) => {
     const shiftOrder = { 'A': 1, 'B': 2, 'C': 3, 'D': 4 };
     const p1 = shiftOrder[emp1.defaultWorkShift] || 99;
     const p2 = shiftOrder[emp2.defaultWorkShift] || 99;
@@ -294,8 +296,10 @@ function rebuildSortedStaffIds() {
     }
     return emp1.name.localeCompare(emp2.name);
   });
-  
-  state.sortedStaffIds = sorted.map(emp => emp.id);
+}
+
+function rebuildSortedStaffIds() {
+  state.sortedStaffIds = state.staff.map(emp => emp.id);
 }
 
 // 5. 勞基法與排班規則即時稽核器 (Labor Law Auditor)
@@ -459,6 +463,9 @@ function isRosterCompliantWithMaxConsecutive(rosterCopy, empId, maxDays = 5) {
 }
 
 function runAutoScheduler() {
+  // 一鍵排班前，自動將客服同仁依預設固定班別進行排序
+  sortStaffByShift();
+
   const year = state.currentYear;
   const month = state.currentMonth;
   const daysCount = getDaysInMonth(year, month);
@@ -665,6 +672,9 @@ function runAutoScheduler() {
         let lowestSupportDays = Infinity;
         
         staffList.forEach(emp => {
+          // 獨立班別人員(D)不參與支援調班
+          if (emp.defaultWorkShift === 'D') return;
+
           const currentShift = newRoster[dateStr][emp.id];
           // 如果他今天沒上班 (OFF, PTO) 或是已經在排這個缺口班別，就不能支援
           if (currentShift === 'OFF' || currentShift === 'PTO' || currentShift === shortage.shiftId) return;
@@ -1273,15 +1283,60 @@ function renderStaffList() {
   state.staff.forEach(emp => {
     const card = document.createElement('div');
     card.className = 'staff-card';
+    card.setAttribute('draggable', 'true');
+    card.dataset.id = emp.id;
+    card.style.cursor = 'grab';
+
+    // HTML5 拖曳排序事件監聽
+    card.addEventListener('dragstart', function(e) {
+      dragSrcEl = this;
+      this.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', emp.id);
+    });
+
+    card.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      this.classList.add('drag-over');
+    });
+
+    card.addEventListener('dragleave', function() {
+      this.classList.remove('drag-over');
+    });
+
+    card.addEventListener('dragend', function() {
+      this.classList.remove('dragging');
+      document.querySelectorAll('.staff-card').forEach(c => c.classList.remove('drag-over'));
+    });
+
+    card.addEventListener('drop', function(e) {
+      e.preventDefault();
+      const draggedId = e.dataTransfer.getData('text/plain');
+      const targetId = this.dataset.id;
+      if (draggedId !== targetId) {
+        const draggedIdx = state.staff.findIndex(item => item.id === draggedId);
+        const targetIdx = state.staff.findIndex(item => item.id === targetId);
+        if (draggedIdx !== -1 && targetIdx !== -1) {
+          const [removed] = state.staff.splice(draggedIdx, 1);
+          state.staff.splice(targetIdx, 0, removed);
+          
+          state.hasUnsavedChanges = true;
+          updateUnsavedChangesUI();
+          rebuildSortedStaffIds();
+          renderAll();
+        }
+      }
+    });
+
     card.innerHTML = `
-      <div class="staff-card-info">
+      <div class="staff-card-info" style="pointer-events: none;">
         <div class="staff-avatar">${emp.name.charAt(0)}</div>
         <div class="staff-details">
           <span class="staff-name">${emp.name}</span>
           <span class="staff-desc">已排特休: ${emp.pto.length} 天</span>
         </div>
       </div>
-      <div class="staff-actions">
+      <div class="staff-actions" style="pointer-events: auto;">
         <button class="btn-icon btn-xs btn-staff-pref" data-id="${emp.id}" title="喜好設定">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px; height:14px;"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
@@ -1444,17 +1499,7 @@ function renderFairnessDashboard() {
     return { emp, counts };
   });
 
-  // 依照預設固定班別 早班(A) > 中班(B) > 晚班(C) > 獨立班(D) 對統計資料進行排序，與班表總覽維持畫面一致性
-  stats.sort((s1, s2) => {
-    const shiftOrder = { 'A': 1, 'B': 2, 'C': 3, 'D': 4 };
-    const p1 = shiftOrder[s1.emp.defaultWorkShift] || 99;
-    const p2 = shiftOrder[s2.emp.defaultWorkShift] || 99;
-    
-    if (p1 !== p2) {
-      return p1 - p2;
-    }
-    return s1.emp.name.localeCompare(s2.emp.name);
-  });
+  // 已自動依照與客服人員名單及班表總覽相同的順序，維持畫面一致性
 
   // 渲染公平性進度條
   // 滿分理想工時參考：本月上班天數 * 8 小時
@@ -1690,6 +1735,7 @@ function renderAll() {
   
     state.staff.push(newEmp);
     state.hasUnsavedChanges = true;
+    sortStaffByShift();
     rebuildSortedStaffIds();
     renderAll();
   }
@@ -1939,6 +1985,7 @@ function saveEmployeeConfig() {
   });
 
   state.hasUnsavedChanges = true;
+  sortStaffByShift();
   rebuildSortedStaffIds();
   closeEmployeeConfigModal();
   renderAll();
