@@ -74,17 +74,17 @@ const DEFAULT_STAFF = [
   },
   {
     id: 'staff_8',
-    name: 'Molly Song',
-    pto: [],
-    defaultOffDays: [1, 2],
-    defaultWorkShift: 'D'
-  },
-  {
-    id: 'staff_9',
     name: 'Sherry Lin',
     pto: [],
     defaultOffDays: [0, 6],
     defaultWorkShift: 'A'
+  },
+  {
+    id: 'staff_9',
+    name: 'Molly Song',
+    pto: [],
+    defaultOffDays: [1, 2],
+    defaultWorkShift: 'D'
   }
 ];
 
