@@ -282,26 +282,15 @@ function getPreviousMonthBoundaryStats(empId, year, month) {
 
 // 4.5. 穩定排班列排序管理器 (Stable Row Sorting Manager)
 function rebuildSortedStaffIds() {
-  const daysCount = getDaysInMonth(state.currentYear, state.currentMonth);
   const staffList = state.staff;
   
   const sorted = [...staffList].sort((emp1, emp2) => {
-    const getShiftWeight = (emp) => {
-      const counts = { A: 0, B: 0, C: 0, D: 0 };
-      for (let d = 1; d <= daysCount; d++) {
-        const dateStr = formatDateISO(state.currentYear, state.currentMonth, d);
-        const sId = (state.roster[dateStr] && state.roster[dateStr][emp.id]) || 'OFF';
-        if (counts[sId] !== undefined) counts[sId]++;
-      }
-      // 早班(A)權重10000，中班(B)100，晚班(C)1，獨立班(D)0.01
-      return counts.A * 10000 + counts.B * 100 + counts.C * 1 + counts.D * 0.01;
-    };
+    const shiftOrder = { 'A': 1, 'B': 2, 'C': 3, 'D': 4 };
+    const p1 = shiftOrder[emp1.defaultWorkShift] || 99;
+    const p2 = shiftOrder[emp2.defaultWorkShift] || 99;
     
-    const score1 = getShiftWeight(emp1);
-    const score2 = getShiftWeight(emp2);
-    
-    if (score1 !== score2) {
-      return score2 - score1;
+    if (p1 !== p2) {
+      return p1 - p2;
     }
     return emp1.name.localeCompare(emp2.name);
   });
@@ -1455,17 +1444,14 @@ function renderFairnessDashboard() {
     return { emp, counts };
   });
 
-  // 依照 早班(A) > 中班(B) > 晚班(C) 的排班比重對統計資料進行相同排序，維持畫面一致性
+  // 依照預設固定班別 早班(A) > 中班(B) > 晚班(C) > 獨立班(D) 對統計資料進行排序，與班表總覽維持畫面一致性
   stats.sort((s1, s2) => {
-    const getWeight = (st) => {
-      return st.counts.A * 10000 + st.counts.B * 100 + st.counts.C * 1 + st.counts.custom * 0.01;
-    };
+    const shiftOrder = { 'A': 1, 'B': 2, 'C': 3, 'D': 4 };
+    const p1 = shiftOrder[s1.emp.defaultWorkShift] || 99;
+    const p2 = shiftOrder[s2.emp.defaultWorkShift] || 99;
     
-    const score1 = getWeight(s1);
-    const score2 = getWeight(s2);
-    
-    if (score1 !== score2) {
-      return score2 - score1;
+    if (p1 !== p2) {
+      return p1 - p2;
     }
     return s1.emp.name.localeCompare(s2.emp.name);
   });
