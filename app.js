@@ -15,8 +15,7 @@ const state = {
   theme: 'dark',   // 'dark' or 'light'
   hasUnsavedChanges: false, // 標記當前是否有未儲存的變更
   googleWebAppUrl: 'https://script.google.com/macros/s/AKfycbzv05O95bIipY0MqRX-9gyP-VCP9GRfvAHLpSorDZNdvIGzmolQYPEvGFus7y5UDPfV/exec',      // Google Sheets Apps Script Web App 網址
-  backupRoster: {},          // 保存上次儲存的班表備份以供「取消變更」復原
-  archives: []               // 歷史班表封存清單
+  backupRoster: {}          // 保存上次儲存的班表備份以供「取消變更」復原
 };
 
 let dragSrcEl = null;
@@ -150,7 +149,6 @@ function initDatabase() {
       state.backupRoster = JSON.parse(JSON.stringify(state.roster));
       state.backupStaff = JSON.parse(JSON.stringify(state.staff));
       state.hasUnsavedChanges = false;
-      state.archives = parsed.archives || [];
 
       // 自動升級檢測：如果快取名單長度小於 9 位或是沒有 Molly Song，直接重置並載入最新 9 人名單
       const hasMolly = state.staff.some(emp => emp.name === 'Molly Song');
@@ -184,7 +182,6 @@ function loadDefaults() {
   state.backupRoster = {};
   state.backupStaff = JSON.parse(JSON.stringify(state.staff));
   state.hasUnsavedChanges = false;
-  state.archives = [];
   saveToLocalStorage();
   rebuildSortedStaffIds();
 }
@@ -309,9 +306,12 @@ function auditRoster(year, month) {
   const staffMap = new Map(state.staff.map(s => [s.id, s]));
   const shiftMap = new Map(state.shifts.map(s => [s.id, s]));
   
-  // 建立額外虛擬班別代表休假
+  // 建立額外虛擬班別代表休假與特殊假別
   shiftMap.set('OFF', { id: 'OFF', name: '休假', start: '00:00', end: '00:00' });
   shiftMap.set('PTO', { id: 'PTO', name: '特休', start: '00:00', end: '00:00' });
+  shiftMap.set('LOA', { id: 'LOA', name: '留職停薪', start: '00:00', end: '00:00' });
+  shiftMap.set('AM_PTO', { id: 'AM_PTO', name: '上午特休', start: '00:00', end: '00:00' });
+  shiftMap.set('PM_PTO', { id: 'PM_PTO', name: '下午特休', start: '00:00', end: '00:00' });
 
   // 一、針對每位客服人員的個人檢查 (7休1、11小時輪班間隔、每月休天數)
   state.staff.forEach(employee => {
@@ -325,7 +325,7 @@ function auditRoster(year, month) {
       const dateStr = formatDateISO(year, month, day);
       const shiftId = (state.roster[dateStr] && state.roster[dateStr][employee.id]) || 'OFF';
 
-      const isWork = (shiftId !== 'OFF' && shiftId !== 'PTO');
+      const isWork = (shiftId !== 'OFF' && shiftId !== 'PTO' && shiftId !== 'LOA');
 
       // 1. 7休1原則 (連續上班不能超過 6 天)
       if (isWork) {
@@ -350,7 +350,8 @@ function auditRoster(year, month) {
         const prevShift = shiftMap.get(prevShiftId);
         const currShift = shiftMap.get(shiftId);
 
-        if (prevShift && currShift && prevShiftId !== 'OFF' && prevShiftId !== 'PTO' && shiftId !== 'OFF' && shiftId !== 'PTO') {
+        const leaveTypes = ['OFF', 'PTO', 'LOA', 'AM_PTO', 'PM_PTO'];
+        if (prevShift && currShift && !leaveTypes.includes(prevShiftId) && !leaveTypes.includes(shiftId)) {
           const restHours = calculateRestHours(prevShift, currShift);
           if (restHours < 11) {
             const dayLabel = day === 1 ? '上月底' : `${day - 1}日`;
@@ -450,7 +451,7 @@ function isRosterCompliantWithMaxConsecutive(rosterCopy, empId, maxDays = 5) {
   for (let d = 1; d <= daysCount; d++) {
     const dateStr = formatDateISO(state.currentYear, state.currentMonth, d);
     const shiftId = rosterCopy[dateStr][empId];
-    if (shiftId === 'OFF' || shiftId === 'PTO') {
+    if (shiftId === 'OFF' || shiftId === 'PTO' || shiftId === 'LOA') {
       consecutive = 0;
     } else {
       consecutive++;
@@ -676,8 +677,9 @@ function runAutoScheduler() {
           if (emp.defaultWorkShift === 'D') return;
 
           const currentShift = newRoster[dateStr][emp.id];
-          // 如果他今天沒上班 (OFF, PTO) 或是已經在排這個缺口班別，就不能支援
-          if (currentShift === 'OFF' || currentShift === 'PTO' || currentShift === shortage.shiftId) return;
+          // 如果他今天沒上班 (OFF, PTO, LOA, AM_PTO, PM_PTO) 或是已經在排這個缺口班別，就不能支援
+          const leaveTypes = ['OFF', 'PTO', 'LOA', 'AM_PTO', 'PM_PTO'];
+          if (leaveTypes.includes(currentShift) || currentShift === shortage.shiftId) return;
 
           const defShift = emp.defaultWorkShift || 'A';
           
@@ -700,7 +702,8 @@ function runAutoScheduler() {
             const prevShiftId = newRoster[prevDateStr][emp.id];
             const prevS = state.shifts.find(s => s.id === prevShiftId);
             const currS = state.shifts.find(s => s.id === shortage.shiftId);
-            if (prevS && currS && prevShiftId !== 'OFF' && prevShiftId !== 'PTO') {
+            const leaveTypes = ['OFF', 'PTO', 'LOA', 'AM_PTO', 'PM_PTO'];
+            if (prevS && currS && !leaveTypes.includes(prevShiftId)) {
               if (calculateRestHours(prevS, currS) < 11) return;
             }
           }
@@ -710,7 +713,8 @@ function runAutoScheduler() {
             const nextShiftId = newRoster[nextDateStr][emp.id];
             const currS = state.shifts.find(s => s.id === shortage.shiftId);
             const nextS = state.shifts.find(s => s.id === nextShiftId);
-            if (currS && nextS && nextShiftId !== 'OFF' && nextShiftId !== 'PTO') {
+            const leaveTypes = ['OFF', 'PTO', 'LOA', 'AM_PTO', 'PM_PTO'];
+            if (currS && nextS && !leaveTypes.includes(nextShiftId)) {
               if (calculateRestHours(currS, nextS) < 11) return;
             }
           }
@@ -819,6 +823,9 @@ function isEmployeeRosterCompliant(rosterCopy, daysCount, empId) {
   const shiftMap = new Map(state.shifts.map(s => [s.id, s]));
   shiftMap.set('OFF', { id: 'OFF', name: '休假', start: '00:00', end: '00:00' });
   shiftMap.set('PTO', { id: 'PTO', name: '特休', start: '00:00', end: '00:00' });
+  shiftMap.set('LOA', { id: 'LOA', name: '留職停薪', start: '00:00', end: '00:00' });
+  shiftMap.set('AM_PTO', { id: 'AM_PTO', name: '上午特休', start: '00:00', end: '00:00' });
+  shiftMap.set('PM_PTO', { id: 'PM_PTO', name: '下午特休', start: '00:00', end: '00:00' });
 
   // 智慧跨月邊界檢查，承接上月歷史數據以校驗連續天數及輪班間隔
   const boundary = getPreviousMonthBoundaryStats(empId, state.currentYear, state.currentMonth);
@@ -828,7 +835,7 @@ function isEmployeeRosterCompliant(rosterCopy, daysCount, empId) {
   for (let d = 1; d <= daysCount; d++) {
     const dateStr = formatDateISO(state.currentYear, state.currentMonth, d);
     const shiftId = rosterCopy[dateStr][empId] || 'OFF';
-    const isWork = (shiftId !== 'OFF' && shiftId !== 'PTO');
+    const isWork = (shiftId !== 'OFF' && shiftId !== 'PTO' && shiftId !== 'LOA');
 
     // 1. 7休1原則 (連續上班不能超過 6 天)
     if (isWork) {
@@ -844,7 +851,8 @@ function isEmployeeRosterCompliant(rosterCopy, daysCount, empId) {
     if (prevId && shiftId) {
       const prevS = shiftMap.get(prevId);
       const currS = shiftMap.get(shiftId);
-      if (prevS && currS && prevId !== 'OFF' && prevId !== 'PTO' && shiftId !== 'OFF' && shiftId !== 'PTO') {
+      const leaveTypes = ['OFF', 'PTO', 'LOA', 'AM_PTO', 'PM_PTO'];
+      if (prevS && currS && !leaveTypes.includes(prevId) && !leaveTypes.includes(shiftId)) {
         if (calculateRestHours(prevS, currS) < 11) {
           return false;
         }
@@ -936,6 +944,9 @@ function checkLaborComplianceForSwap(rosterCopy, daysCount, empId1, empId2) {
   const shiftMap = new Map(state.shifts.map(s => [s.id, s]));
   shiftMap.set('OFF', { id: 'OFF', name: '休假', start: '00:00', end: '00:00' });
   shiftMap.set('PTO', { id: 'PTO', name: '特休', start: '00:00', end: '00:00' });
+  shiftMap.set('LOA', { id: 'LOA', name: '留職停薪', start: '00:00', end: '00:00' });
+  shiftMap.set('AM_PTO', { id: 'AM_PTO', name: '上午特休', start: '00:00', end: '00:00' });
+  shiftMap.set('PM_PTO', { id: 'PM_PTO', name: '下午特休', start: '00:00', end: '00:00' });
 
   targetEmps.forEach(empId => {
     let consecutive = 0;
@@ -946,7 +957,7 @@ function checkLaborComplianceForSwap(rosterCopy, daysCount, empId1, empId2) {
     for (let d = 1; d <= daysCount; d++) {
       const dateStr = formatDateISO(state.currentYear, state.currentMonth, d);
       const shiftId = rosterCopy[dateStr][empId] || 'OFF';
-      const isWork = (shiftId !== 'OFF' && shiftId !== 'PTO');
+      const isWork = (shiftId !== 'OFF' && shiftId !== 'PTO' && shiftId !== 'LOA');
 
       if (isWork) {
         consecutive++;
@@ -960,7 +971,8 @@ function checkLaborComplianceForSwap(rosterCopy, daysCount, empId1, empId2) {
       if (d > 1 && prevId && shiftId) {
         const prevS = shiftMap.get(prevId);
         const currS = shiftMap.get(shiftId);
-        if (prevS && currS && prevId !== 'OFF' && prevId !== 'PTO' && shiftId !== 'OFF' && shiftId !== 'PTO') {
+        const leaveTypes = ['OFF', 'PTO', 'LOA', 'AM_PTO', 'PM_PTO'];
+        if (prevS && currS && !leaveTypes.includes(prevId) && !leaveTypes.includes(shiftId)) {
           if (calculateRestHours(prevS, currS) < 11) {
             warnings.push({ severity: 'error' });
           }
@@ -1102,9 +1114,9 @@ function renderRosterGrid() {
       // 檢查這個格子是否在違規報告中 (紅光警告標識)
       const hasConflict = currentWarnings.some(w => w.employeeId === employee.id && w.date === dateStr && w.severity === 'error');
       
-      // 檢查是否為調班支援班次 (非預設工作班別，且非休假特休)
+      // 檢查是否為調班支援班次 (非預設工作班別，且非休假特休與假別)
       const defShift = employee.defaultWorkShift || 'A';
-      const isSupportShift = (assignedShiftId !== 'OFF' && assignedShiftId !== 'PTO' && assignedShiftId !== defShift);
+      const isSupportShift = (assignedShiftId !== 'OFF' && assignedShiftId !== 'PTO' && assignedShiftId !== 'LOA' && assignedShiftId !== 'AM_PTO' && assignedShiftId !== 'PM_PTO' && assignedShiftId !== defShift);
 
       // 繪製格子的 Shift Badge
       let badgeLabel = assignedShiftId;
@@ -1114,11 +1126,17 @@ function renderRosterGrid() {
         badgeLabel = '休';
       } else if (assignedShiftId === 'PTO') {
         badgeLabel = '特';
+      } else if (assignedShiftId === 'LOA') {
+        badgeLabel = 'LOA';
+      } else if (assignedShiftId === 'AM_PTO') {
+        badgeLabel = '上特';
+      } else if (assignedShiftId === 'PM_PTO') {
+        badgeLabel = '下特';
       } else {
-        // 自訂班次的話顯示班次前二個字，或是代碼
+        // 顯示班次起始時間
         const matchedShift = shiftList.find(s => s.id === assignedShiftId);
         if (matchedShift) {
-          badgeLabel = matchedShift.name.substring(0, 2);
+          badgeLabel = matchedShift.start;
           if (isSupportShift) {
             badgeLabel += '*';
           }
@@ -1136,6 +1154,9 @@ function renderRosterGrid() {
       let selectOptions = `
         <option value="OFF" ${assignedShiftId === 'OFF' ? 'selected' : ''}>休假 (OFF)</option>
         <option value="PTO" ${assignedShiftId === 'PTO' ? 'selected' : ''}>特休 (PTO)</option>
+        <option value="LOA" ${assignedShiftId === 'LOA' ? 'selected' : ''}>留職停薪 (LOA)</option>
+        <option value="AM_PTO" ${assignedShiftId === 'AM_PTO' ? 'selected' : ''}>上午特休 (上特)</option>
+        <option value="PM_PTO" ${assignedShiftId === 'PM_PTO' ? 'selected' : ''}>下午特休 (下特)</option>
       `;
       shiftList.forEach(s => {
         selectOptions += `<option value="${s.id}" ${assignedShiftId === s.id ? 'selected' : ''}>${s.name} (${s.start}-${s.end})</option>`;
@@ -2196,9 +2217,9 @@ function saveRosterChanges() {
   
   if (state.googleWebAppUrl) {
     syncRosterToCloud(true); // 靜默上傳
-  } else {
-    alert('班表與客服人員名單已儲存至本機快取！設定「雲端同步」網址可自動備份至雲端。');
   }
+  
+  alert('班表已成功儲存！');
   rebuildSortedStaffIds();
 }
 
@@ -2330,9 +2351,6 @@ async function syncRosterFromCloud(isSilent = false) {
       state.roster = cloudState.roster || {};
       state.theme = cloudState.theme || 'dark';
       
-      // 關鍵修復：從雲端下載時同步解壓並載入歷史班表 archives 陣列
-      state.archives = cloudState.archives || [];
-      
       state.backupRoster = JSON.parse(JSON.stringify(state.roster));
       state.hasUnsavedChanges = false;
       
@@ -2362,369 +2380,7 @@ async function syncRosterFromCloud(isSilent = false) {
   }
 }
 
-// 10.8. 歷史班表封存與 Excel 上傳檢視空間 (Phase 3)
-
-// 將目前活躍班表編譯為標準 2D 陣列 (CSV/Excel Grid Layout)
-function convertCurrentRosterTo2DArray() {
-  const daysCount = getDaysInMonth(state.currentYear, state.currentMonth);
-  const staffList = state.staff;
-  const shiftList = state.shifts;
-  
-  // 1. 建立表頭行 (第一列)
-  const headerRow = ["客服人員 / 日期"];
-  for (let d = 1; d <= daysCount; d++) {
-    const dayOfWeek = getDayOfWeek(state.currentYear, state.currentMonth, d);
-    const dayName = getDayOfWeekName(dayOfWeek);
-    headerRow.push(`${d}日 (${dayName})`);
-  }
-  
-  const grid2D = [headerRow];
-  
-  // 2. 建立班別中文映射表
-  const shiftMap = {};
-  shiftList.forEach(s => {
-    shiftMap[s.id] = s.name;
-  });
-  shiftMap['OFF'] = '休假';
-  shiftMap['PTO'] = '特休';
-  
-  // 3. 逐一寫入客服專員排班列
-  staffList.forEach(emp => {
-    const row = [emp.name];
-    for (let d = 1; d <= daysCount; d++) {
-      const dateStr = formatDateISO(state.currentYear, state.currentMonth, d);
-      const sId = (state.roster[dateStr] && state.roster[dateStr][emp.id]) || 'OFF';
-      row.push(shiftMap[sId] || sId);
-    }
-    grid2D.push(row);
-  });
-  
-  // 4. 寫入「可再休 PTO」列
-  const ptoRow = ["可再休 PTO"];
-  for (let d = 1; d <= daysCount; d++) {
-    const dateStr = formatDateISO(state.currentYear, state.currentMonth, d);
-    const dayOfWeek = getDayOfWeek(state.currentYear, state.currentMonth, d);
-    const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
-    
-    // 計算最低覆蓋總需求
-    let minRequired = 0;
-    shiftList.forEach(s => {
-      const targetConfig = state.coverageTargets[s.id] || { weekday: 0, weekend: 0 };
-      minRequired += isWeekend ? targetConfig.weekend : targetConfig.weekday;
-    });
-    
-    // 計算活躍上班常規客服
-    let activeWorking = 0;
-    staffList.forEach(emp => {
-      const sId = (state.roster[dateStr] && state.roster[dateStr][emp.id]) || 'OFF';
-      if (sId !== 'OFF' && sId !== 'PTO') {
-        activeWorking++;
-      }
-    });
-    
-    const extraPtoAvailable = Math.max(0, activeWorking - minRequired);
-    ptoRow.push(extraPtoAvailable > 0 ? `+${extraPtoAvailable}` : "0");
-  }
-  grid2D.push(ptoRow);
-  
-  return grid2D;
-}
-
-// 渲染歷史班表清單
-function renderArchiveList() {
-  const container = document.getElementById('archive-list');
-  if (!container) return;
-  
-  container.innerHTML = '';
-  
-  if (!state.archives || state.archives.length === 0) {
-    container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 20px; font-size: 0.8rem;">暫無封存班表</div>`;
-    return;
-  }
-  
-  state.archives.forEach(item => {
-    const card = document.createElement('div');
-    let typeClass = 'type-system';
-    if (item.source.includes('Excel')) typeClass = 'type-excel';
-    if (item.source.includes('CSV')) typeClass = 'type-csv';
-    
-    card.className = `archive-card ${typeClass}`;
-    
-    const rowCount = item.grid ? item.grid.length : 0;
-    const colCount = (item.grid && item.grid[0]) ? item.grid[0].length : 0;
-    const dateRangeLabel = colCount > 1 ? `${colCount - 1} 天班表` : '無日期欄位';
-    const staffCountLabel = rowCount > 2 ? `${rowCount - 2} 位人員` : `${rowCount} 列數據`;
-    
-    card.innerHTML = `
-      <div class="archive-card-header">
-        <span class="archive-card-title">${item.name}</span>
-        <span class="archive-card-type-tag">${item.source}</span>
-      </div>
-      <div class="archive-card-meta">
-        <div class="archive-card-meta-row">
-          <span class="archive-card-meta-label">封存時間：</span>
-          <span class="archive-card-meta-value">${item.time}</span>
-        </div>
-        <div class="archive-card-meta-row">
-          <span class="archive-card-meta-label">班表規格：</span>
-          <span class="archive-card-meta-value">${staffCountLabel} / ${dateRangeLabel}</span>
-        </div>
-      </div>
-      <div class="archive-card-actions">
-        <button class="btn btn-xs btn-primary btn-view-archive" data-id="${item.id}">檢視</button>
-        <button class="btn btn-xs btn-secondary btn-delete-archive" data-id="${item.id}" style="border-color: var(--accent-red-glow); color: var(--accent-red);">刪除</button>
-      </div>
-    `;
-    
-    container.appendChild(card);
-  });
-  
-  // 綁定檢視與刪除事件
-  container.querySelectorAll('.btn-view-archive').forEach(btn => {
-    btn.addEventListener('click', function() {
-      viewArchive(this.dataset.id);
-    });
-  });
-  
-  container.querySelectorAll('.btn-delete-archive').forEach(btn => {
-    btn.addEventListener('click', function() {
-      deleteArchive(this.dataset.id);
-    });
-  });
-}
-
-// 將當前活躍班表封存為歷史記錄
-function archiveCurrentRoster() {
-  const hasData = Object.keys(state.roster).length > 0;
-  if (!hasData) {
-    alert('當前尚無已排班資料可以封存！請先執行 AI 排班或手動排班。');
-    return;
-  }
-  
-  const monthNames = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二'];
-  const defaultName = `${state.currentYear}年${monthNames[state.currentMonth]}月系統封存班表`;
-  const name = prompt('請輸入此歷史班表的封存名稱：', defaultName);
-  
-  if (name === null) return; // 使用者按取消
-  const archiveName = name.trim() || defaultName;
-  
-  const roster2D = convertCurrentRosterTo2DArray();
-  
-  const newItem = {
-    id: 'arch_' + Date.now(),
-    name: archiveName,
-    time: new Date().toLocaleString(),
-    source: '系統封存',
-    grid: roster2D
-  };
-  
-  if (!state.archives) state.archives = [];
-  state.archives.unshift(newItem);
-  
-  saveToLocalStorage();
-  renderArchiveList();
-  syncRosterToCloud(true); // 自動備份至雲端
-  alert('當前班表已成功封存至歷史記錄中！');
-}
-
-// 匯入上傳的 Excel/CSV 檔案並儲存為歷史記錄
-function importArchiveFromFile(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  
-  const fileName = file.name;
-  const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
-  const isCsv = fileName.endsWith('.csv');
-  const sourceLabel = isExcel ? 'Excel 上傳' : 'CSV 上傳';
-  
-  const reader = new FileReader();
-  reader.onload = function(evt) {
-    try {
-      const data = new Uint8Array(evt.target.result);
-      const workbook = XLSX.read(data, {type: 'array'});
-      const firstSheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[firstSheetName];
-      
-      // 使用 SheetJS 將 Sheet 轉成 2D 二維陣列
-      const roster2D = XLSX.utils.sheet_to_json(worksheet, {header: 1});
-      
-      if (!roster2D || roster2D.length === 0) {
-        throw new Error('此檔案無可讀取的表格資料。');
-      }
-      
-      const newItem = {
-        id: 'arch_' + Date.now(),
-        name: fileName,
-        time: new Date().toLocaleString(),
-        source: sourceLabel,
-        grid: roster2D
-      };
-      
-      if (!state.archives) state.archives = [];
-      state.archives.unshift(newItem);
-      
-      saveToLocalStorage();
-      renderArchiveList();
-      syncRosterToCloud(true); // 自動備份至雲端
-      alert(`檔案「${fileName}」已成功解析並儲存至歷史清單中！`);
-    } catch (err) {
-      alert('解析檔案失敗：' + err.message);
-    }
-    e.target.value = ''; // 清空以支援重複上傳同檔案
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-// 開啟並渲染歷史班表唯讀網格彈窗
-function viewArchive(archiveId) {
-  const item = state.archives.find(arch => arch.id === archiveId);
-  if (!item) {
-    alert('找不到該歷史封存班表！');
-    return;
-  }
-  
-  document.getElementById('archive-view-name').textContent = item.name;
-  document.getElementById('archive-view-time').textContent = item.time;
-  document.getElementById('archive-view-source').textContent = item.source;
-  
-  const headContainer = document.getElementById('archive-table-head');
-  const bodyContainer = document.getElementById('archive-table-body');
-  
-  headContainer.innerHTML = '';
-  bodyContainer.innerHTML = '';
-  
-  const grid = item.grid;
-  if (!grid || grid.length === 0) {
-    bodyContainer.innerHTML = `<tr><td style="padding: 24px; text-align: center; color: var(--text-muted);">此班表無有效網格數據。</td></tr>`;
-    document.getElementById('modal-archive-view').classList.remove('display-none');
-    return;
-  }
-  
-  // 1. 渲染表頭列 (第一行)
-  const headerRowData = grid[0];
-  const trHead = document.createElement('tr');
-  headerRowData.forEach((cellText, colIndex) => {
-    const th = document.createElement('th');
-    th.textContent = cellText || '';
-    
-    if (colIndex === 0) {
-      th.className = 'col-staff-name';
-      th.style.position = 'sticky';
-      th.style.left = '0';
-      th.style.zIndex = '5';
-      th.style.background = 'var(--bg-secondary)';
-    } else {
-      th.style.textAlign = 'center';
-    }
-    
-    // 週末列高亮
-    if (cellText && (cellText.toString().includes('(六)') || cellText.toString().includes('(日)'))) {
-      th.classList.add('date-weekend');
-    }
-    
-    trHead.appendChild(th);
-  });
-  headContainer.appendChild(trHead);
-  
-  // 2. 渲染資料列 (其餘每一行)
-  for (let rowIndex = 1; rowIndex < grid.length; rowIndex++) {
-    const rowData = grid[rowIndex];
-    const trBody = document.createElement('tr');
-    
-    // 檢測是否為 PTO 計算列
-    const isPtoRow = rowData[0] === '可再休 PTO';
-    
-    if (isPtoRow) {
-      trBody.style.background = 'rgba(16, 185, 129, 0.04)';
-    }
-    
-    rowData.forEach((cellValue, colIndex) => {
-      const td = document.createElement('td');
-      
-      if (colIndex === 0) {
-        td.className = 'col-staff-name';
-        td.style.fontWeight = 'bold';
-        td.style.position = 'sticky';
-        td.style.left = '0';
-        td.style.zIndex = '3';
-        td.style.background = isPtoRow ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg-secondary)';
-        
-        if (isPtoRow) {
-          td.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 1.1rem;">🌴</span>
-              <span style="color: var(--accent-green); font-weight: 700;">可再休 PTO</span>
-            </div>
-          `;
-        } else {
-          td.textContent = cellValue || '';
-        }
-      } else {
-        td.style.textAlign = 'center';
-        const val = (cellValue || '').toString().trim();
-        
-        if (isPtoRow) {
-          const quotaNum = parseInt(val.replace('+', '')) || 0;
-          let quotaBadgeClass = 'shift-OFF';
-          let quotaLabel = '0';
-          if (quotaNum > 0) {
-            quotaBadgeClass = 'shift-A'; // 綠色高亮
-            quotaLabel = `+${quotaNum}`;
-          }
-          td.innerHTML = `
-            <div style="display: flex; justify-content: center; align-items: center;">
-              <span class="shift-badge ${quotaBadgeClass}" style="border-radius: 50%; font-size: 0.75rem; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 4px rgba(16,185,129,0.15);">${quotaLabel}</span>
-            </div>
-          `;
-        } else {
-          // 常規班別著色標籤
-          if (val === '休假' || val === '休' || val === 'OFF') {
-            td.innerHTML = `<span class="shift-badge shift-OFF">休</span>`;
-          } else if (val === '特休' || val === '特' || val === 'PTO') {
-            td.innerHTML = `<span class="shift-badge shift-PTO">特</span>`;
-          } else if (val === '早班' || val === '早' || val === 'A') {
-            td.innerHTML = `<span class="shift-badge shift-A">早</span>`;
-          } else if (val === '中班' || val === '中' || val === 'B') {
-            td.innerHTML = `<span class="shift-badge shift-B">中</span>`;
-          } else if (val === '晚班' || val === '晚' || val === 'C') {
-            td.innerHTML = `<span class="shift-badge shift-C">晚</span>`;
-          } else if (val === '獨立班' || val === '獨' || val === 'D') {
-            td.innerHTML = `<span class="shift-badge shift-custom" style="background-color: var(--accent-blue-glow); color: var(--text-primary);">獨</span>`;
-          } else if (val) {
-            td.innerHTML = `<span class="shift-badge shift-custom">${val}</span>`;
-          } else {
-            td.innerHTML = `&mdash;`;
-          }
-        }
-      }
-      
-      // 繼承表頭的週末陰影
-      const correspondingHeader = headerRowData[colIndex];
-      if (correspondingHeader && (correspondingHeader.toString().includes('(六)') || correspondingHeader.toString().includes('(日)'))) {
-        td.classList.add('date-weekend');
-      }
-      
-      trBody.appendChild(td);
-    });
-    bodyContainer.appendChild(trBody);
-  }
-  
-  // 開啟彈窗
-  document.getElementById('modal-archive-view').classList.remove('display-none');
-}
-
-// 刪除歷史封存記錄
-function deleteArchive(archiveId) {
-  const item = state.archives.find(arch => arch.id === archiveId);
-  if (!item) return;
-  
-  if (confirm(`確定要永久刪除歷史班表「${item.name}」嗎？此動作無法復原。`)) {
-    state.archives = state.archives.filter(arch => arch.id !== archiveId);
-    saveToLocalStorage();
-    renderArchiveList();
-    syncRosterToCloud(true); // 自動備份至雲端
-  }
-}
+// 10.8. 歷史班表完全移除
 
 
 // 11. 事件監聽與 DOM 初始化 (Event Bindings)
@@ -2940,58 +2596,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // 10.5. 雲端同步與變更儲存/取消 DOM 監聽 (Phase 2)
-  const webAppUrlInput = document.getElementById('input-web-app-url');
-  const btnClearUrl = document.getElementById('btn-clear-url');
-  const btnCloudUpload = document.getElementById('btn-cloud-upload');
-  const btnCloudDownload = document.getElementById('btn-cloud-download');
-  
-  if (webAppUrlInput) {
-    webAppUrlInput.value = state.googleWebAppUrl || '';
-    
-    // 監聽網址輸入變更
-    webAppUrlInput.addEventListener('change', function() {
-      state.googleWebAppUrl = this.value.trim();
-      saveToLocalStorage();
-      
-      if (state.googleWebAppUrl) {
-        updateSyncStatus('connected', '已設定網址', 'var(--accent-blue)', null, '已儲存 Web App 網址。可以進行上傳或下載。');
-      } else {
-        updateSyncStatus('disconnected', '未連接', 'var(--text-muted)', '-', '尚未設定 Web App 網址。貼上網址並按「備份到雲端」可將現有班表上傳並於 Google Sheets 中產生人類易讀的精美班表。');
-      }
-    });
-    
-    // 初始化同步狀態顯示
-    if (state.googleWebAppUrl) {
-      updateSyncStatus('connected', '已設定網址', 'var(--accent-blue)', null, '已儲存 Web App 網址。可以進行上傳或下載。');
-    } else {
-      updateSyncStatus('disconnected', '未連接', 'var(--text-muted)', '-', '尚未設定 Web App 網址。貼上網址並按「備份到雲端」可將現有班表上傳並於 Google Sheets 中產生人類易讀的精美班表。');
-    }
-  }
-  
-  if (btnClearUrl) {
-    btnClearUrl.addEventListener('click', function() {
-      if (webAppUrlInput) {
-        webAppUrlInput.value = '';
-        state.googleWebAppUrl = '';
-        saveToLocalStorage();
-        updateSyncStatus('disconnected', '未連接', 'var(--text-muted)', '-', '尚未設定 Web App 網址。貼上網址並按「備份到雲端」可將現有班表上傳並於 Google Sheets 中產生人類易讀的精美班表。');
-      }
-    });
-  }
-  
-  if (btnCloudUpload) {
-    btnCloudUpload.addEventListener('click', () => {
-      syncRosterToCloud(false);
-    });
-  }
-  
-  if (btnCloudDownload) {
-    btnCloudDownload.addEventListener('click', () => {
-      syncRosterFromCloud();
-    });
-  }
-
   // 儲存/取消按鈕
   const btnSaveRoster = document.getElementById('btn-save-roster');
   const btnCancelRoster = document.getElementById('btn-cancel-roster');
@@ -3003,42 +2607,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnCancelRoster) {
     btnCancelRoster.addEventListener('click', cancelRosterChanges);
   }
-  
-  // 10.8. 歷史班表與備份事件監聽 (Phase 3)
-  const btnTriggerUpload = document.getElementById('btn-trigger-upload-archive');
-  const inputArchiveFile = document.getElementById('input-archive-file');
-  const btnArchiveCurrent = document.getElementById('btn-archive-current');
-  const btnCloseArchiveModal = document.getElementById('btn-close-archive-modal');
-  const btnArchiveViewClose = document.getElementById('btn-archive-view-close');
-
-  if (btnTriggerUpload && inputArchiveFile) {
-    btnTriggerUpload.addEventListener('click', () => {
-      inputArchiveFile.click();
-    });
-  }
-
-  if (inputArchiveFile) {
-    inputArchiveFile.addEventListener('change', importArchiveFromFile);
-  }
-
-  if (btnArchiveCurrent) {
-    btnArchiveCurrent.addEventListener('click', archiveCurrentRoster);
-  }
-
-  const closeArchiveModal = () => {
-    document.getElementById('modal-archive-view').classList.add('display-none');
-  };
-
-  if (btnCloseArchiveModal) {
-    btnCloseArchiveModal.addEventListener('click', closeArchiveModal);
-  }
-
-  if (btnArchiveViewClose) {
-    btnArchiveViewClose.addEventListener('click', closeArchiveModal);
-  }
-
-  // 渲染一次歷史班表清單
-  renderArchiveList();
 
   // 11. 首次繪製
   renderAll();

@@ -51,6 +51,18 @@
   --shift-pto-text: #f87171;
   --shift-pto-border: rgba(239, 68, 68, 0.3);
 
+  --shift-loa-bg: rgba(99, 102, 241, 0.15);
+  --shift-loa-text: #818cf8;
+  --shift-loa-border: rgba(99, 102, 241, 0.3);
+
+  --shift-am-pto-bg: rgba(236, 72, 153, 0.15);
+  --shift-am-pto-text: #f472b6;
+  --shift-am-pto-border: rgba(236, 72, 153, 0.3);
+
+  --shift-pm-pto-bg: rgba(244, 63, 94, 0.15);
+  --shift-pm-pto-text: #fb7185;
+  --shift-pm-pto-border: rgba(244, 63, 94, 0.3);
+
   --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   
@@ -108,6 +120,18 @@
   --shift-pto-bg: rgba(220, 38, 38, 0.1);
   --shift-pto-text: #b91c1c;
   --shift-pto-border: rgba(220, 38, 38, 0.2);
+
+  --shift-loa-bg: rgba(99, 102, 241, 0.12);
+  --shift-loa-text: #4f46e5;
+  --shift-loa-border: rgba(99, 102, 241, 0.25);
+
+  --shift-am-pto-bg: rgba(236, 72, 153, 0.12);
+  --shift-am-pto-text: #db2777;
+  --shift-am-pto-border: rgba(236, 72, 153, 0.25);
+
+  --shift-pm-pto-bg: rgba(244, 63, 94, 0.12);
+  --shift-pm-pto-text: #e11d48;
+  --shift-pm-pto-border: rgba(244, 63, 94, 0.25);
   
   --glass-glow: 0 8px 32px 0 rgba(148, 163, 184, 0.12);
   --glass-border: 1px solid rgba(0, 0, 0, 0.08);
@@ -1219,6 +1243,24 @@ h1, h2, h3, h4 {
   box-shadow: inset 0 0 5px rgba(239, 68, 68, 0.1);
 }
 
+.shift-badge.shift-LOA {
+  background-color: var(--shift-loa-bg);
+  color: var(--shift-loa-text);
+  border-color: var(--shift-loa-border);
+}
+
+.shift-badge.shift-AM_PTO {
+  background-color: var(--shift-am-pto-bg);
+  color: var(--shift-am-pto-text);
+  border-color: var(--shift-am-pto-border);
+}
+
+.shift-badge.shift-PM_PTO {
+  background-color: var(--shift-pm-pto-bg);
+  color: var(--shift-pm-pto-text);
+  border-color: var(--shift-pm-pto-border);
+}
+
 .shift-badge.shift-custom {
   background-color: var(--shift-custom-bg);
   color: var(--shift-custom-text);
@@ -1806,6 +1848,24 @@ h1, h2, h3, h4 {
     background-color: #fef2f2 !important;
     border-color: #ef4444 !important;
     color: #b91c1c !important;
+  }
+
+  .shift-badge.shift-LOA {
+    background-color: #e0e7ff !important;
+    border-color: #6366f1 !important;
+    color: #4338ca !important;
+  }
+
+  .shift-badge.shift-AM_PTO {
+    background-color: #fdf2f8 !important;
+    border-color: #ec4899 !important;
+    color: #be185d !important;
+  }
+
+  .shift-badge.shift-PM_PTO {
+    background-color: #fff1f2 !important;
+    border-color: #f43f5e !important;
+    color: #be123c !important;
   }
 
   .shift-badge.shift-custom {

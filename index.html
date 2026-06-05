@@ -163,14 +163,6 @@
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="tab-icon"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
           <span>公平性與工時</span>
         </button>
-        <button class="sidebar-tab" data-tab="settings-panel">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="tab-icon"><path d="M18 10h-.01c.01-.16.01-.32.01-.48a6.5 6.5 0 0 0-13 0c0 .16 0 .32.01.48H5a5 5 0 0 0 0 10h13a5 5 0 0 0 0-10z"/></svg>
-          <span>雲端同步</span>
-        </button>
-        <button class="sidebar-tab" data-tab="archive-panel">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="tab-icon"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><path d="M12 11v6"/><path d="M9 14h6"/></svg>
-          <span>歷史班表</span>
-        </button>
       </div>
 
       <!-- Content Area of Sidebar Panels -->
@@ -280,87 +272,6 @@
             </div>
           </div>
         </div>
-
-        <!-- Panel 4: Cloud Sync & Settings -->
-        <div id="settings-panel" class="sidebar-panel">
-          <div class="panel-header">
-            <h3>雲端備份與同步</h3>
-          </div>
-          <div class="fairness-stats-wrapper">
-            <div class="settings-group">
-              <label for="input-web-app-url">Google Apps Script 網頁應用程式網址</label>
-              <div class="settings-input-wrapper" style="display: flex; position: relative; width: 100%;">
-                <input type="url" id="input-web-app-url" class="form-control" placeholder="https://script.google.com/macros/s/.../exec" style="padding-right: 36px; width: 100%;">
-                <button id="btn-clear-url" class="clear-input-btn" title="清除網址" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; transition: color 0.2s;">&times;</button>
-              </div>
-              <p class="section-desc" style="margin-top: 4px;">請在此貼上您的 Google Apps Script 網頁應用程式部署網址，以啟用雲端同步。</p>
-            </div>
-
-            <div class="settings-actions" style="display: flex; flex-direction: column; gap: 12px; margin-top: 16px;">
-              <button id="btn-cloud-upload" class="btn btn-sync-cloud btn-glow" style="display: flex; align-items: center; justify-content: center; padding: 10px; width: 100%;">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon-svg" style="margin-right: 6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                <span>備份到雲端 (上傳)</span>
-              </button>
-              <button id="btn-cloud-download" class="btn btn-download-cloud" style="display: flex; align-items: center; justify-content: center; padding: 10px; width: 100%;">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon-svg" style="margin-right: 6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                <span>從雲端同步 (下載)</span>
-              </button>
-            </div>
-
-            <div class="sync-status-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 12px; margin-top: 16px; display: flex; flex-direction: column; gap: 6px;">
-              <div class="status-row" style="display: flex; justify-content: space-between; font-size: 0.8rem;">
-                <span class="status-label" style="color: var(--text-secondary);">同步狀態：</span>
-                <span id="sync-status-indicator" class="status-value disconnected" style="font-weight: 600; color: var(--text-muted);">未連接</span>
-              </div>
-              <div class="status-row" style="display: flex; justify-content: space-between; font-size: 0.8rem;">
-                <span class="status-label" style="color: var(--text-secondary);">最後同步時間：</span>
-                <span id="sync-last-time" class="status-value" style="font-weight: 600; color: var(--text-primary);">-</span>
-              </div>
-              <div id="sync-status-message" class="status-message" style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.4; margin-top: 4px; padding-top: 6px; border-top: 1px dashed var(--border-color);">尚未設定 Web App 網址。貼上網址並按「備份到雲端」可將現有班表上傳並於 Google Sheets 中產生人類易讀的精美班表。</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Panel 5: Archive / Past Rosters -->
-        <div id="archive-panel" class="sidebar-panel">
-          <div class="panel-header">
-            <h3>歷史班表與備份</h3>
-          </div>
-          <div class="fairness-stats-wrapper">
-            <!-- Action 1: Upload Excel/CSV -->
-            <div class="settings-group">
-              <label>上傳過去班表檔案</label>
-              <p class="section-desc" style="margin-bottom: 8px;">支援上傳 Excel (`.xlsx`, `.xls`) 或 CSV 檔案。</p>
-              
-              <div style="display: flex; gap: 8px; align-items: center; width: 100%;">
-                <button id="btn-trigger-upload-archive" class="btn btn-sm btn-glow" style="flex: 1; justify-content: center; padding: 10px 0; display: flex; align-items: center;">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon-svg" style="margin-right: 6px; width: 16px; height: 16px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                  <span>上傳班表檔案</span>
-                </button>
-                <input type="file" id="input-archive-file" accept=".xlsx,.xls,.csv" style="display: none;">
-              </div>
-            </div>
-
-            <!-- Action 2: Archive Current Active Roster -->
-            <div class="settings-group" style="margin-top: 16px;">
-              <label>將目前班表存為歷史</label>
-              <p class="section-desc" style="margin-bottom: 8px;">把當前畫面上正在編輯或已儲存的班表快照封存。</p>
-              <button id="btn-archive-current" class="btn btn-sm btn-secondary" style="width: 100%; justify-content: center; padding: 10px 0; display: flex; align-items: center;">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon-svg" style="margin-right: 6px; width: 16px; height: 16px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                <span>封存目前班表</span>
-              </button>
-            </div>
-
-            <div style="border-top: 1px solid var(--border-color); margin: 16px 0; padding-top: 16px;">
-              <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.85rem;">已封存的班表列表</label>
-              <div id="archive-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 350px; overflow-y: auto; padding-right: 4px;">
-                <!-- Dynamically populated -->
-                <div style="text-align: center; color: var(--text-muted); padding: 20px; font-size: 0.8rem;">暫無封存班表</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
       </div>
     </aside>
 
@@ -502,44 +413,6 @@
     <p>&copy; 2026 Asurion Roster Automation. Built under compliance with Taiwan Labor Standards Act.</p>
   </footer>
 
-  <!-- Modal: Archive View -->
-  <div id="modal-archive-view" class="modal-overlay display-none">
-    <div class="modal-card" style="max-width: 90%; width: 1200px; max-height: 90vh; display: flex; flex-direction: column;">
-      <div class="modal-header">
-        <h3 id="archive-view-title" style="display: flex; align-items: center; gap: 8px;">
-          <span>📅</span> <span id="archive-view-name">檢視歷史班表</span>
-        </h3>
-        <button class="modal-close" id="btn-close-archive-modal">&times;</button>
-      </div>
-      <div class="modal-body" style="overflow: hidden; display: flex; flex-direction: column; gap: 16px; flex: 1;">
-        <div class="sync-status-card" style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 12px; font-size: 0.8rem; margin: 0;">
-          <div>
-            <span style="color: var(--text-secondary);">封存時間：</span>
-            <span id="archive-view-time" style="font-weight: 600; color: var(--text-primary);">-</span>
-          </div>
-          <div>
-            <span style="color: var(--text-secondary);">資料來源：</span>
-            <span id="archive-view-source" style="font-weight: 600; color: var(--accent-blue);">-</span>
-          </div>
-        </div>
-        <div class="table-responsive" style="flex: 1; overflow: auto; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-          <table class="roster-table" style="width: 100%; border-collapse: separate; border-spacing: 0; background: var(--bg-secondary); min-width: 800px;">
-            <thead id="archive-table-head" style="position: sticky; top: 0; z-index: 10;">
-              <!-- Dynamically populated -->
-            </thead>
-            <tbody id="archive-table-body">
-              <!-- Dynamically populated -->
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div class="modal-footer" style="margin-top: 0;">
-        <button class="btn btn-secondary" id="btn-archive-view-close">關閉</button>
-      </div>
-    </div>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
