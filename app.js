@@ -328,7 +328,7 @@ function auditRoster(year, month) {
     // 智慧跨月邊界歷史追溯檢查
     const boundary = getPreviousMonthBoundaryStats(employee.id, year, month);
     let consecutiveWorkDays = boundary.consecutiveWork;
-    let totalOffDays = 0;
+    let regularOffDays = 0;
     let prevShiftId = boundary.lastShiftId;
 
     for (let day = 1; day <= daysCount; day++) {
@@ -352,7 +352,10 @@ function auditRoster(year, month) {
         }
       } else {
         consecutiveWorkDays = 0;
-        totalOffDays++;
+      }
+
+      if (shiftId === 'OFF') {
+        regularOffDays++;
       }
 
       // 2. 11小時輪班間隔檢查 (與前一天對比)
@@ -393,21 +396,21 @@ function auditRoster(year, month) {
     }
 
     // 4. 每月固定休假天數驗證
-    if (totalOffDays < state.daysOff) {
+    if (regularOffDays < state.daysOff) {
       warnings.push({
         type: 'off_days_short',
         severity: 'warning',
         employeeId: employee.id,
         employeeName: employee.name,
-        message: `${employee.name} 本月排定休假共 ${totalOffDays} 天，少於設定的固定休假天數 ${state.daysOff} 天（相差 ${state.daysOff - totalOffDays} 天）。`
+        message: `${employee.name} 本月排定一般休假共 ${regularOffDays} 天，少於設定的固定休假天數 ${state.daysOff} 天（相差 ${state.daysOff - regularOffDays} 天）。`
       });
-    } else if (totalOffDays > state.daysOff) {
+    } else if (regularOffDays > state.daysOff) {
       warnings.push({
         type: 'off_days_excess',
         severity: 'info',
         employeeId: employee.id,
         employeeName: employee.name,
-        message: `${employee.name} 本月排定休假共 ${totalOffDays} 天，多於設定的固定休假天數 ${state.daysOff} 天。`
+        message: `${employee.name} 本月排定一般休假共 ${regularOffDays} 天，多於設定的固定休假天數 ${state.daysOff} 天。`
       });
     }
   });
@@ -534,12 +537,12 @@ function runAutoScheduler() {
     }
     
     // 3. 調整休假天數，使其精準等於目標月休天數
-    // 重新完整統計所有 OFF + PTO 天數（Step 2 可能已插入額外 OFF）
+    // 重新完整統計所有 OFF 天數（Step 2 可能已插入額外 OFF）
     const recountOff = () => {
       let count = 0;
       for (let d = 1; d <= daysCount; d++) {
         const dateStr = formatDateISO(year, month, d);
-        if (empRoster[dateStr] === 'OFF' || empRoster[dateStr] === 'PTO') {
+        if (empRoster[dateStr] === 'OFF') {
           count++;
         }
       }
@@ -779,17 +782,15 @@ function reduceExcessOffDays(newRoster, daysCount) {
   if (regularShiftIds.length === 0) return;
 
   staffList.forEach(emp => {
-    // 1. 計算該員工當前總休假天數 (OFF + PTO)
+    // 1. 計算該員工當前總休假天數 (OFF)
     let totalOffDays = 0;
     const offDates = []; // 儲存所有排定為 'OFF' 的日期
     for (let d = 1; d <= daysCount; d++) {
       const dateStr = formatDateISO(state.currentYear, state.currentMonth, d);
       const shiftId = newRoster[dateStr][emp.id];
-      if (shiftId === 'OFF' || shiftId === 'PTO') {
+      if (shiftId === 'OFF') {
         totalOffDays++;
-        if (shiftId === 'OFF') {
-          offDates.push({ d, dateStr });
-        }
+        offDates.push({ d, dateStr });
       }
     }
 
@@ -898,14 +899,14 @@ function adjustRosterForExactDaysOff(newRoster, daysCount) {
   
   // 重複執行數次交換以收斂結果
   for (let iteration = 0; iteration < 3; iteration++) {
-    // 重新計算每個人的休假總天數
+    // 重新計算每個人的休假總天數 (僅計算一般休假 OFF)
     const offCounts = {};
     staffList.forEach(emp => {
       offCounts[emp.id] = 0;
       for (let d = 1; d <= daysCount; d++) {
         const dateStr = formatDateISO(state.currentYear, state.currentMonth, d);
         const sId = newRoster[dateStr][emp.id];
-        if (sId === 'OFF' || sId === 'PTO') {
+        if (sId === 'OFF') {
           offCounts[emp.id]++;
         }
       }
