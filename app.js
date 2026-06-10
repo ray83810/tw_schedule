@@ -2286,10 +2286,10 @@ function updateSyncStatus(status, label, color, lastTime = null, message = null)
 
 // 備份到雲端 (POST)
 async function syncRosterToCloud(isAuto = false) {
-  const url = state.googleWebAppUrl || document.getElementById('input-web-app-url').value.trim();
+  const url = state.googleWebAppUrl;
   if (!url) {
     if (!isAuto) {
-      alert('請先輸入 Google Apps Script 網頁應用程式網址！');
+      alert('尚未配置雲端同步網址！');
     }
     return;
   }
@@ -2337,10 +2337,10 @@ async function syncRosterToCloud(isAuto = false) {
 
 // 從雲端同步 (GET)
 async function syncRosterFromCloud(isSilent = false) {
-  const url = state.googleWebAppUrl || document.getElementById('input-web-app-url').value.trim();
+  const url = state.googleWebAppUrl;
   if (!url) {
     if (!isSilent) {
-      alert('請先輸入 Google Apps Script 網頁應用程式網址！');
+      alert('尚未配置雲端同步網址！');
     }
     return;
   }
@@ -2374,10 +2374,19 @@ async function syncRosterFromCloud(isSilent = false) {
       state.roster = cloudState.roster || {};
       state.theme = cloudState.theme || 'dark';
       
+      // 自動升級雲端資料：若缺少 sortIndex，依陣列順序自動指派
+      state.staff.forEach((emp, idx) => {
+        if (emp.sortIndex === undefined || emp.sortIndex === null) {
+          emp.sortIndex = idx;
+        }
+      });
+      
       state.backupRoster = JSON.parse(JSON.stringify(state.roster));
+      state.backupStaff = JSON.parse(JSON.stringify(state.staff));
       state.hasUnsavedChanges = false;
       
       saveToLocalStorage();
+      sortStaffByShift(); // 依 sortIndex 穩定排序
       rebuildSortedStaffIds(); // 重建排序
       
       populateYearMonthSelectors();
