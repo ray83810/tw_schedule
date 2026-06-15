@@ -979,45 +979,36 @@ h1, h2, h3, h4 {
   color: var(--accent-blue);
 }
 
-.fairness-progress-bar-container {
-  height: 8px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  overflow: hidden;
-  display: flex;
-}
-
-.fairness-bar-segment {
-  height: 100%;
-}
-
-.fairness-bar-early { background-color: var(--shift-early-text); }
-.fairness-bar-middle { background-color: var(--shift-middle-text); }
-.fairness-bar-late { background-color: var(--shift-late-text); }
-.fairness-bar-custom { background-color: var(--shift-custom-text); }
-.fairness-bar-off { background-color: rgba(148, 163, 184, 0.4); }
-
-.fairness-breakdown-legend {
+/* Fairness Tags Row — 帶色彩標籤取代長條圖 */
+.fairness-tags-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  font-size: 0.72rem;
-  margin-top: 4px;
+  gap: 6px;
+  margin-bottom: 8px;
 }
 
-.legend-dot-item {
-  display: flex;
+.fairness-tag {
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
-  color: var(--text-secondary);
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #fff;
+  white-space: nowrap;
 }
 
-.legend-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
+/* 各班別標籤色彩（使用對應班別色系） */
+.fairness-tag.fairness-bar-early { background-color: var(--shift-early-text); }
+.fairness-tag.fairness-bar-middle { background-color: var(--shift-middle-text); }
+.fairness-tag.fairness-bar-late { background-color: var(--shift-late-text); }
+.fairness-tag.fairness-bar-custom { background-color: var(--shift-custom-text); }
+.fairness-tag.fairness-bar-off { background-color: rgba(148, 163, 184, 0.5); color: var(--text-primary); }
+.fairness-tag.fairness-bar-pto { background-color: #e879f9; }
+.fairness-tag.fairness-bar-loa { background-color: #f97316; }
+.fairness-tag.fairness-bar-half-pto { background-color: #a78bfa; }
+
 
 /* Center Workspace Area: Grid View Roster */
 .roster-view-container {

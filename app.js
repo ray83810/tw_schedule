@@ -1526,44 +1526,37 @@ function renderFairnessDashboard() {
     return a.emp.name.localeCompare(b.emp.name);
   });
 
-  // 渲染公平性進度條
+  // 渲染公平性面板 — 以帶色彩標籤顯示天數與佔比
   // 滿分理想工時參考：本月上班天數 * 8 小時
   const maxIdealHours = (daysCount - state.daysOff) * 8;
 
   stats.forEach(({ emp, counts }) => {
-    // 計算比例以利在進度條畫出不同顏色區間 (早/中/晚/自訂/休/特/LOA/半特)
     const totalDays = daysCount;
-    const pctA = (counts.A / totalDays) * 100;
-    const pctB = (counts.B / totalDays) * 100;
-    const pctC = (counts.C / totalDays) * 100;
-    const pctCustom = (counts.custom / totalDays) * 100;
-    const pctOff = (counts.OFF / totalDays) * 100;
-    const pctPto = (counts.PTO / totalDays) * 100;
-    const pctLoa = (counts.LOA / totalDays) * 100;
-    const pctHalfPto = ((counts.AM_PTO + counts.PM_PTO) / totalDays) * 100;
 
-    let restDesc = `一般休假: ${counts.OFF} 天`;
-    if (counts.PTO > 0) restDesc += ` | 特休: ${counts.PTO} 天`;
-    if (counts.LOA > 0) restDesc += ` | LOA: ${counts.LOA} 天`;
-    if (counts.AM_PTO + counts.PM_PTO > 0) restDesc += ` | 半特: ${counts.AM_PTO + counts.PM_PTO} 天`;
+    // 建構各班別標籤資料 (僅顯示天數 > 0 的)
+    const tags = [];
+    if (counts.A > 0) tags.push({ label: '早班', days: counts.A, cls: 'fairness-bar-early' });
+    if (counts.B > 0) tags.push({ label: '中班', days: counts.B, cls: 'fairness-bar-middle' });
+    if (counts.C > 0) tags.push({ label: '晚班', days: counts.C, cls: 'fairness-bar-late' });
+    if (counts.custom > 0) tags.push({ label: '自訂', days: counts.custom, cls: 'fairness-bar-custom' });
+    if (counts.OFF > 0) tags.push({ label: '休假', days: counts.OFF, cls: 'fairness-bar-off' });
+    if (counts.PTO > 0) tags.push({ label: '特休', days: counts.PTO, cls: 'fairness-bar-pto' });
+    if (counts.LOA > 0) tags.push({ label: 'LOA', days: counts.LOA, cls: 'fairness-bar-loa' });
+    if (counts.AM_PTO + counts.PM_PTO > 0) tags.push({ label: '半特', days: counts.AM_PTO + counts.PM_PTO, cls: 'fairness-bar-half-pto' });
+
+    const tagsHtml = tags.map(t => {
+      const pct = ((t.days / totalDays) * 100).toFixed(0);
+      return `<span class="fairness-tag ${t.cls}">${t.label} ${t.days}天 (${pct}%)</span>`;
+    }).join('');
 
     const item = document.createElement('div');
     item.className = 'fairness-staff-item';
     item.innerHTML = `
       <div class="fairness-staff-header">
         <span class="fairness-staff-name">${emp.name}</span>
-        <span class="fairness-staff-hours">實計工時: ${counts.totalWorkHours} hrs (${restDesc})</span>
+        <span class="fairness-staff-hours">實計工時: ${counts.totalWorkHours} hrs</span>
       </div>
-      <div class="fairness-progress-bar-container" title="早班 ${counts.A}天, 中班 ${counts.B}天, 晚班 ${counts.C}天, 自訂 ${counts.custom}天, 一般休假 ${counts.OFF}天, 特休 ${counts.PTO}天, LOA ${counts.LOA}天, 半特 ${counts.AM_PTO + counts.PM_PTO}天" style="margin-bottom: 4px;">
-        <div class="fairness-bar-segment fairness-bar-early" style="width: ${pctA}%"></div>
-        <div class="fairness-bar-segment fairness-bar-middle" style="width: ${pctB}%"></div>
-        <div class="fairness-bar-segment fairness-bar-late" style="width: ${pctC}%"></div>
-        <div class="fairness-bar-segment fairness-bar-custom" style="width: ${pctCustom}%"></div>
-        <div class="fairness-bar-segment fairness-bar-off" style="width: ${pctOff}%"></div>
-        <div class="fairness-bar-segment fairness-bar-pto" style="width: ${pctPto}%"></div>
-        <div class="fairness-bar-segment fairness-bar-loa" style="width: ${pctLoa}%"></div>
-        <div class="fairness-bar-segment fairness-bar-half-pto" style="width: ${pctHalfPto}%"></div>
-      </div>
+      <div class="fairness-tags-row">${tagsHtml}</div>
       <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 12px; padding: 0 2px; border-bottom: 1px dashed rgba(255,255,255,0.05); padding-bottom: 6px;">
         <span>🏢 信義辦公: <strong style="color: var(--accent-blue);">${counts.xinyiDays}</strong> 天</span>
         <span>🌴 平日休: <strong style="color: var(--text-primary);">${counts.weekdayOffCount}</strong> 天 / 假日休: <strong style="color: var(--text-primary);">${counts.weekendOffCount}</strong> 天</span>
@@ -1571,20 +1564,6 @@ function renderFairnessDashboard() {
     `;
     container.appendChild(item);
   });
-
-  // 繪製公平性圖例
-  container.innerHTML += `
-    <div class="fairness-breakdown-legend">
-      <div class="legend-dot-item"><span class="legend-dot fairness-bar-early"></span> <span>早班</span></div>
-      <div class="legend-dot-item"><span class="legend-dot fairness-bar-middle"></span> <span>中班</span></div>
-      <div class="legend-dot-item"><span class="legend-dot fairness-bar-late"></span> <span>晚班</span></div>
-      <div class="legend-dot-item"><span class="legend-dot fairness-bar-custom"></span> <span>自訂</span></div>
-      <div class="legend-dot-item"><span class="legend-dot fairness-bar-off"></span> <span>一般休假</span></div>
-      <div class="legend-dot-item"><span class="legend-dot fairness-bar-pto"></span> <span>特休</span></div>
-      <div class="legend-dot-item"><span class="legend-dot fairness-bar-loa"></span> <span>LOA</span></div>
-      <div class="legend-dot-item"><span class="legend-dot fairness-bar-half-pto"></span> <span>半特</span></div>
-    </div>
-  `;
 }
 
 // G. 渲染底部合規衝突警告報告 (Warnings Panel)
