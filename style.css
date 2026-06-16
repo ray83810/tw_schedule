@@ -2177,3 +2177,9 @@ h1, h2, h3, h4 {
 .memo-save-btn:hover {
   background: linear-gradient(135deg, #2563eb, #1d4ed8);
 }
+
+@media (min-width: 992px) {
+  .metric-card.memo-card {
+    grid-column: span 2;
+  }
+}

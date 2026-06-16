@@ -3021,35 +3021,20 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initMemos() {
-  const memoA = localStorage.getItem('aura_roster_memo_a') || '';
-  const memoB = localStorage.getItem('aura_roster_memo_b') || '';
-  
-  const textareaA = document.getElementById('memo-a-content');
-  const textareaB = document.getElementById('memo-b-content');
-  
-  if (textareaA) textareaA.value = memoA;
-  if (textareaB) textareaB.value = memoB;
+  const memoVal = localStorage.getItem('aura_roster_memo') || '';
+  const textarea = document.getElementById('memo-content');
+  if (textarea) textarea.value = memoVal;
 }
 
 function setupMemoEventListeners() {
-  const btnSaveA = document.getElementById('btn-save-memo-a');
-  const btnSaveB = document.getElementById('btn-save-memo-b');
-  const textareaA = document.getElementById('memo-a-content');
-  const textareaB = document.getElementById('memo-b-content');
+  const btnSave = document.getElementById('btn-save-memo');
+  const textarea = document.getElementById('memo-content');
   
-  if (btnSaveA && textareaA) {
-    btnSaveA.addEventListener('click', (e) => {
+  if (btnSave && textarea) {
+    btnSave.addEventListener('click', (e) => {
       e.preventDefault();
-      localStorage.setItem('aura_roster_memo_a', textareaA.value);
-      showMemoSaveFeedback(btnSaveA);
-    });
-  }
-  
-  if (btnSaveB && textareaB) {
-    btnSaveB.addEventListener('click', (e) => {
-      e.preventDefault();
-      localStorage.setItem('aura_roster_memo_b', textareaB.value);
-      showMemoSaveFeedback(btnSaveB);
+      localStorage.setItem('aura_roster_memo', textarea.value);
+      showMemoSaveFeedback(btnSave);
     });
   }
 }
