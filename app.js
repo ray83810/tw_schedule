@@ -319,7 +319,7 @@ function auditRoster(year, month) {
   // 建立額外虛擬班別代表休假與特殊假別
   shiftMap.set('OFF', { id: 'OFF', name: '休假', start: '00:00', end: '00:00' });
   shiftMap.set('PTO', { id: 'PTO', name: '特休', start: '00:00', end: '00:00' });
-  shiftMap.set('LOA', { id: 'LOA', name: '留職停薪', start: '00:00', end: '00:00' });
+  shiftMap.set('LOA', { id: 'LOA', name: '體檢', start: '00:00', end: '00:00' });
   shiftMap.set('AM_PTO', { id: 'AM_PTO', name: '上午特休', start: '00:00', end: '00:00' });
   shiftMap.set('PM_PTO', { id: 'PM_PTO', name: '下午特休', start: '00:00', end: '00:00' });
 
@@ -845,7 +845,7 @@ function isEmployeeRosterCompliant(rosterCopy, daysCount, empId) {
   const shiftMap = new Map(state.shifts.map(s => [s.id, s]));
   shiftMap.set('OFF', { id: 'OFF', name: '休假', start: '00:00', end: '00:00' });
   shiftMap.set('PTO', { id: 'PTO', name: '特休', start: '00:00', end: '00:00' });
-  shiftMap.set('LOA', { id: 'LOA', name: '留職停薪', start: '00:00', end: '00:00' });
+  shiftMap.set('LOA', { id: 'LOA', name: '體檢', start: '00:00', end: '00:00' });
   shiftMap.set('AM_PTO', { id: 'AM_PTO', name: '上午特休', start: '00:00', end: '00:00' });
   shiftMap.set('PM_PTO', { id: 'PM_PTO', name: '下午特休', start: '00:00', end: '00:00' });
 
@@ -966,7 +966,7 @@ function checkLaborComplianceForSwap(rosterCopy, daysCount, empId1, empId2) {
   const shiftMap = new Map(state.shifts.map(s => [s.id, s]));
   shiftMap.set('OFF', { id: 'OFF', name: '休假', start: '00:00', end: '00:00' });
   shiftMap.set('PTO', { id: 'PTO', name: '特休', start: '00:00', end: '00:00' });
-  shiftMap.set('LOA', { id: 'LOA', name: '留職停薪', start: '00:00', end: '00:00' });
+  shiftMap.set('LOA', { id: 'LOA', name: '體檢', start: '00:00', end: '00:00' });
   shiftMap.set('AM_PTO', { id: 'AM_PTO', name: '上午特休', start: '00:00', end: '00:00' });
   shiftMap.set('PM_PTO', { id: 'PM_PTO', name: '下午特休', start: '00:00', end: '00:00' });
 
@@ -1168,7 +1168,7 @@ function renderRosterGrid() {
       let selectOptions = `
         <option value="OFF" ${assignedShiftId === 'OFF' ? 'selected' : ''}>休假 (OFF)</option>
         <option value="PTO" ${assignedShiftId === 'PTO' ? 'selected' : ''}>特休 (PTO)</option>
-        <option value="LOA" ${assignedShiftId === 'LOA' ? 'selected' : ''}>留職停薪 (LOA)</option>
+        <option value="LOA" ${assignedShiftId === 'LOA' ? 'selected' : ''}>體檢 (LOA)</option>
         <option value="AM_PTO" ${assignedShiftId === 'AM_PTO' ? 'selected' : ''}>上午特休 (上特)</option>
         <option value="PM_PTO" ${assignedShiftId === 'PM_PTO' ? 'selected' : ''}>下午特休 (下特)</option>
       `;
