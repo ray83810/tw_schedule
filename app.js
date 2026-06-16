@@ -1235,9 +1235,10 @@ function renderRosterGrid() {
       minRequired += isWeekend ? targetConfig.weekend : targetConfig.weekday;
     });
 
-    // 計算當日已排班人數 (非 OFF/PTO/LOA)
+    // 計算當日已排班人數 (非 OFF/PTO/LOA，且排除獨立班D)
     let activeWorking = 0;
     staffList.forEach(emp => {
+      if (emp.defaultWorkShift === 'D') return;
       const shiftId = (state.roster[dateStr] && state.roster[dateStr][emp.id]) || 'OFF';
       if (shiftId !== 'OFF' && shiftId !== 'PTO' && shiftId !== 'LOA') {
         if (shiftId === 'AM_PTO' || shiftId === 'PM_PTO') {
@@ -2074,9 +2075,10 @@ function exportRosterToCSV() {
       minRequired += isWeekend ? targetConfig.weekend : targetConfig.weekday;
     });
 
-    // 計算當日已排班人數 (非 OFF/PTO/LOA)
+    // 計算當日已排班人數 (非 OFF/PTO/LOA，且排除獨立班D)
     let activeWorking = 0;
     staffList.forEach(emp => {
+      if (emp.defaultWorkShift === 'D') return;
       const shiftId = (state.roster[dateStr] && state.roster[dateStr][emp.id]) || 'OFF';
       if (shiftId !== 'OFF' && shiftId !== 'PTO' && shiftId !== 'LOA') {
         if (shiftId === 'AM_PTO' || shiftId === 'PM_PTO') {
@@ -2616,6 +2618,7 @@ function exportRosterToExcel() {
 
     let activeWorking = 0;
     staffList.forEach(emp => {
+      if (emp.defaultWorkShift === 'D') return;
       const shiftId = (state.roster[dateStr] && state.roster[dateStr][emp.id]) || 'OFF';
       if (shiftId !== 'OFF' && shiftId !== 'PTO' && shiftId !== 'LOA') {
         if (shiftId === 'AM_PTO' || shiftId === 'PM_PTO') {
