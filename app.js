@@ -2781,32 +2781,14 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-close-export-modal').addEventListener('click', closeExportModal);
   document.getElementById('btn-export-close').addEventListener('click', closeExportModal);
 
-  // 匯出選單點擊切換與外部點擊收合
-  const exportBtn = document.getElementById('btn-export-menu');
-  const dropdownContainer = exportBtn.closest('.dropdown');
-  exportBtn.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dropdownContainer.classList.toggle('active');
-  });
-  document.addEventListener('click', () => {
-    dropdownContainer.classList.remove('active');
-  });
-
-  // 10. 匯出選單項目事件
-  document.getElementById('export-csv').addEventListener('click', (e) => {
-    e.preventDefault();
-    exportRosterToExcel();
-  });
-  document.getElementById('export-json').addEventListener('click', (e) => {
-    e.preventDefault();
-    exportRosterToJSON();
-  });
-  document.getElementById('import-json-trigger').addEventListener('click', (e) => {
-    e.preventDefault();
-    document.getElementById('import-json-file').click();
-  });
-  document.getElementById('import-json-file').addEventListener('change', importRosterFromJSON);
+  // 10. 匯出班表事件 (直接由按鈕匯出 Excel)
+  const exportBtn = document.getElementById('btn-export-roster');
+  if (exportBtn) {
+    exportBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      exportRosterToExcel();
+    });
+  }
 
   // 放大/還原視窗檢視
   const btnMaximize = document.getElementById('btn-maximize-roster');
@@ -2857,21 +2839,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // 一鍵列印 PDF
-  document.getElementById('export-pdf').addEventListener('click', (e) => {
-    e.preventDefault();
-    window.print();
-  });
 
-  // 重置為預設值
-  document.getElementById('reset-defaults').addEventListener('click', (e) => {
-    e.preventDefault();
-    if (confirm('確定要將所有排班設定、人員名單與已排班表重置為預設值嗎？此動作無法復原。')) {
-      loadDefaults();
-      renderAll();
-      alert('已重置為預設排班設定！');
-    }
-  });
 
   // 儲存/取消按鈕
   const btnSaveRoster = document.getElementById('btn-save-roster');

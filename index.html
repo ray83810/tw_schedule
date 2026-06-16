@@ -75,19 +75,10 @@
         <span>智慧排班</span>
       </button>
       
-      <div class="dropdown">
-        <button id="btn-export-menu" class="btn btn-secondary dropdown-toggle">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon-svg"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          <span>匯出班表</span>
-        </button>
-        <div class="dropdown-menu">
-          <a href="#" id="export-csv">匯出為 Excel 檔</a>
-          <a href="#" id="export-pdf">列印/儲存為 PDF</a>
-          <a href="#" id="export-json">備份排班設定 (JSON)</a>
-          <a href="#" id="import-json-trigger">匯入排班設定</a>
-          <a href="#" id="reset-defaults" style="color: var(--accent-red); border-top: 1px solid var(--border-color); margin-top: 4px; padding-top: 8px;">🔄 重置為預設值</a>
-        </div>
-      </div>
+      <button id="btn-export-roster" class="btn btn-secondary">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon-svg"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span>匯出班表</span>
+      </button>
       <input type="file" id="import-json-file" style="display: none;" accept=".json">
     </div>
   </header>
