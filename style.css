@@ -2019,8 +2019,7 @@ h1, h2, h3, h4 {
   z-index: 6;
 }
 
-/* 放大檢視按鈕樣式 */
-#btn-maximize-roster {
+#btn-maximize-roster, #btn-undo-roster, #btn-redo-roster {
   margin-left: 12px;
   border-radius: 6px;
   padding: 4px 10px;
@@ -2036,15 +2035,21 @@ h1, h2, h3, h4 {
   transition: all 0.2s ease;
 }
 
-#btn-maximize-roster:hover {
+#btn-maximize-roster:hover:not(:disabled), #btn-undo-roster:hover:not(:disabled), #btn-redo-roster:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.1);
   color: var(--text-primary);
   border-color: rgba(255, 255, 255, 0.2);
   transform: translateY(-1px);
 }
 
-#btn-maximize-roster:active {
+#btn-maximize-roster:active:not(:disabled), #btn-undo-roster:active:not(:disabled), #btn-redo-roster:active:not(:disabled) {
   transform: translateY(0);
+}
+
+#btn-undo-roster:disabled, #btn-redo-roster:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
 }
 
 /* 滿版/放大檢視樣式 */

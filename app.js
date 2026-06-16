@@ -20,6 +20,10 @@ const state = {
 
 let dragSrcEl = null;
 
+// 歷史操作記錄 (復原/重做 Undo/Redo 棧)
+let undoStack = [];
+let redoStack = [];
+
 // 2. 預設測試資料 (Initial Seeds)
 const DEFAULT_STAFF = [
   {
@@ -1271,6 +1275,9 @@ function renderRosterGrid() {
       const date = this.dataset.date;
       const newShiftId = this.value;
 
+      // 保存目前狀態以利「上一步」復原
+      pushUndoState();
+
       if (!state.roster[date]) {
         state.roster[date] = {};
       }
@@ -1741,6 +1748,7 @@ function renderAll() {
   renderWarningsReport();
   renderGlobalStats();
   updateUnsavedChangesUI(); // 即時更新未儲存變更的 UI 狀態
+  updateUndoRedoButtonsUI(); // 即時更新復原/重做按鈕可用狀態
 }
 
 // 8. 人員與班別管理底層動作 (Data Actions)
@@ -2644,6 +2652,61 @@ function exportRosterToExcel() {
   }
 }
 
+// A.3 智慧排班與手動調整之復原與重做 (Undo / Redo 邏輯)
+function pushUndoState() {
+  // 複製一份當前的 roster 狀態並推入 undoStack
+  const rosterCopy = JSON.parse(JSON.stringify(state.roster));
+  undoStack.push(rosterCopy);
+  
+  // 限制 stack 大小 (例如最多 50 步)
+  if (undoStack.length > 50) {
+    undoStack.shift();
+  }
+  
+  // 有新的變更動作時，清空重做 stack
+  redoStack = [];
+  updateUndoRedoButtonsUI();
+}
+
+function undoRoster() {
+  if (undoStack.length === 0) return;
+  // 備份當前狀態到 redoStack
+  const currentCopy = JSON.parse(JSON.stringify(state.roster));
+  redoStack.push(currentCopy);
+  
+  // 載入上一步
+  state.roster = undoStack.pop();
+  state.hasUnsavedChanges = true;
+  updateUnsavedChangesUI();
+  updateUndoRedoButtonsUI();
+  renderAll();
+}
+
+function redoRoster() {
+  if (redoStack.length === 0) return;
+  // 備份當前狀態到 undoStack
+  const currentCopy = JSON.parse(JSON.stringify(state.roster));
+  undoStack.push(currentCopy);
+  
+  // 載入下一步
+  state.roster = redoStack.pop();
+  state.hasUnsavedChanges = true;
+  updateUnsavedChangesUI();
+  updateUndoRedoButtonsUI();
+  renderAll();
+}
+
+function updateUndoRedoButtonsUI() {
+  const btnUndo = document.getElementById('btn-undo-roster');
+  const btnRedo = document.getElementById('btn-redo-roster');
+  if (btnUndo) {
+    btnUndo.disabled = (undoStack.length === 0);
+  }
+  if (btnRedo) {
+    btnRedo.disabled = (redoStack.length === 0);
+  }
+}
+
 // 11. 事件監聽與 DOM 初始化 (Event Bindings)
 document.addEventListener('DOMContentLoaded', () => {
   
@@ -2666,6 +2729,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   yearSelect.addEventListener('change', function() {
     state.currentYear = parseInt(this.value);
+    undoStack = [];
+    redoStack = [];
+    updateUndoRedoButtonsUI();
     saveToLocalStorage();
     rebuildSortedStaffIds();
     renderAll();
@@ -2673,6 +2739,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   monthSelect.addEventListener('change', function() {
     state.currentMonth = parseInt(this.value);
+    undoStack = [];
+    redoStack = [];
+    updateUndoRedoButtonsUI();
     saveToLocalStorage();
     rebuildSortedStaffIds();
     renderAll();
@@ -2741,6 +2810,9 @@ document.addEventListener('DOMContentLoaded', () => {
       alert('請先在左側新增至少一位客服人員！');
       return;
     }
+
+    // 保存當前狀態以利復原
+    pushUndoState();
 
     const btn = this;
     const originalText = btn.innerHTML;
@@ -2840,6 +2912,23 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
 
+
+  // 10.2 復原與重做按鈕事件
+  const btnUndo = document.getElementById('btn-undo-roster');
+  if (btnUndo) {
+    btnUndo.addEventListener('click', (e) => {
+      e.preventDefault();
+      undoRoster();
+    });
+  }
+
+  const btnRedo = document.getElementById('btn-redo-roster');
+  if (btnRedo) {
+    btnRedo.addEventListener('click', (e) => {
+      e.preventDefault();
+      redoRoster();
+    });
+  }
 
   // 儲存/取消按鈕
   const btnSaveRoster = document.getElementById('btn-save-roster');
