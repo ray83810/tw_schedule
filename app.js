@@ -1366,7 +1366,7 @@ function renderStaffList() {
         <div class="staff-avatar">${emp.name.charAt(0)}</div>
         <div class="staff-details">
           <span class="staff-name">${emp.name}</span>
-          <span class="staff-desc">預設: ${shiftTag} ｜ 特休: ${emp.pto.length} 天</span>
+          <span class="staff-desc">預設: ${shiftTag} ｜ 特休: ${(emp.pto || []).filter(d => d.startsWith(`${state.currentYear}-${String(state.currentMonth + 1).padStart(2, '0')}`)).length} 天</span>
         </div>
       </div>
       <div class="staff-actions">
