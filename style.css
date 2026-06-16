@@ -2183,3 +2183,67 @@ h1, h2, h3, h4 {
     grid-column: span 2;
   }
 }
+
+.memo-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.memo-action-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.memo-action-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.light-theme .memo-action-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.memo-btn-icon {
+  width: 12px;
+  height: 12px;
+}
+
+/* 備忘錄滿版/放大檢視樣式 */
+.metric-card.memo-card.memo-fullscreen {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  width: 90vw !important;
+  max-width: 800px !important;
+  height: 80vh !important;
+  z-index: 3000 !important;
+  background: var(--bg-secondary) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-lg), 0 0 0 9999px rgba(0, 0, 0, 0.6) !important; /* overlay background */
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 16px !important;
+  padding: 24px !important;
+  animation: none !important; /* stop default float animation in full-screen modal */
+}
+
+.metric-card.memo-card.memo-fullscreen .memo-textarea {
+  flex: 1 !important;
+  height: auto !important;
+  font-size: 1rem !important;
+  padding: 16px !important;
+}

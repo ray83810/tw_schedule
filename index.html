@@ -112,7 +112,15 @@
     <div class="metric-card card-glass memo-card animate-float-slow" style="animation-delay: 0.4s;">
       <div class="card-glow-border"></div>
       <div class="memo-header">
-        <span class="metric-label">備忘紀錄</span>
+        <div class="memo-title-group">
+          <span class="metric-label">備忘錄</span>
+          <button id="btn-maximize-memo" class="memo-action-btn" title="放大檢視">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="memo-btn-icon">
+              <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+            </svg>
+            <span>放大檢視</span>
+          </button>
+        </div>
         <button id="btn-save-memo" class="memo-save-btn">儲存</button>
       </div>
       <textarea id="memo-content" class="memo-textarea" placeholder="在此輸入備忘紀錄..."></textarea>

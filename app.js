@@ -3044,12 +3044,55 @@ function initMemos() {
 function setupMemoEventListeners() {
   const btnSave = document.getElementById('btn-save-memo');
   const textarea = document.getElementById('memo-content');
+  const btnMaximize = document.getElementById('btn-maximize-memo');
+  const memoCard = document.querySelector('.metric-card.memo-card');
   
   if (btnSave && textarea) {
     btnSave.addEventListener('click', (e) => {
       e.preventDefault();
       localStorage.setItem('aura_roster_memo', textarea.value);
       showMemoSaveFeedback(btnSave);
+    });
+  }
+  
+  if (btnMaximize && memoCard) {
+    btnMaximize.addEventListener('click', (e) => {
+      e.preventDefault();
+      const isFullscreen = memoCard.classList.toggle('memo-fullscreen');
+      if (isFullscreen) {
+        btnMaximize.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="memo-btn-icon">
+            <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7"/>
+          </svg>
+          <span>還原視窗</span>
+        `;
+        btnMaximize.title = "還原視窗";
+        document.body.style.overflow = 'hidden'; // 避免背景網頁捲動
+      } else {
+        btnMaximize.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="memo-btn-icon">
+            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+          </svg>
+          <span>放大檢視</span>
+        `;
+        btnMaximize.title = "放大檢視";
+        document.body.style.overflow = '';
+      }
+    });
+
+    // 監聽 Escape 鍵退出備忘錄放大檢視
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && memoCard.classList.contains('memo-fullscreen')) {
+        memoCard.classList.remove('memo-fullscreen');
+        btnMaximize.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="memo-btn-icon">
+            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+          </svg>
+          <span>放大檢視</span>
+        `;
+        btnMaximize.title = "放大檢視";
+        document.body.style.overflow = '';
+      }
     });
   }
 }
