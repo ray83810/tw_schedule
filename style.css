@@ -2247,3 +2247,11 @@ h1, h2, h3, h4 {
   font-size: 1rem !important;
   padding: 16px !important;
 }
+
+.th-subtext {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: normal;
+  display: block;
+  margin-top: 3px;
+}
