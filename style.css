@@ -1495,7 +1495,7 @@ h1, h2, h3, h4 {
   grid-template-columns: repeat(7, 1fr);
   gap: 6px;
   width: 100%;
-  max-width: 420px;
+  max-width: 520px;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: 12px;
@@ -2104,6 +2104,19 @@ h1, h2, h3, h4 {
   transform: none;
 }
 
+.light-theme #btn-maximize-roster, 
+.light-theme #btn-undo-roster, 
+.light-theme #btn-redo-roster {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.light-theme #btn-maximize-roster:hover:not(:disabled), 
+.light-theme #btn-undo-roster:hover:not(:disabled), 
+.light-theme #btn-redo-roster:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.1);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
 /* 滿版/放大檢視樣式 */
 .roster-view-container.roster-fullscreen {
   position: fixed !important;
@@ -2112,7 +2125,7 @@ h1, h2, h3, h4 {
   width: 100vw !important;
   height: 100vh !important;
   z-index: 2000 !important;
-  background: #0B0F19 !important; /* solid app dark background to fully cover underlying content */
+  background: var(--bg-primary) !important; /* solid app background to fully cover underlying content, responsive to light/dark theme */
   border-radius: 0 !important;
   margin: 0 !important;
   padding: 0 !important;
@@ -2124,7 +2137,7 @@ h1, h2, h3, h4 {
 
 .roster-view-container.roster-fullscreen .roster-view-header {
   padding: 16px 24px !important;
-  background: #111827 !important; /* darker background for header */
+  background: var(--bg-secondary) !important; /* header background responsive to light/dark theme */
   border-bottom: 1px solid var(--border-color) !important;
 }
 
