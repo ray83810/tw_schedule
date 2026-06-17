@@ -2304,18 +2304,34 @@ function saveEmployeeConfig() {
   const empIndex = state.staff.findIndex(e => e.id === activeConfigEmpId);
   if (empIndex === -1) return;
 
+  // 取得舊的 pto 列表以便比對哪些被移除了
+  const oldPto = state.staff[empIndex].pto || [];
+
   // 套用暫存與輸入變數
   state.staff[empIndex].pto = tempPtoDays;
   state.staff[empIndex].defaultOffDays = tempDefaultOffDays;
-  
   state.staff[empIndex].defaultWorkShift = document.getElementById('input-emp-default-shift').value || 'A';
 
-  // 如果排程中有 PTO 的日子排了其他班，自動修正為休假
-  tempPtoDays.forEach(dateStr => {
+  // 更新排程中的假期狀態
+  const daysCount = getDaysInMonth(state.currentYear, state.currentMonth);
+  for (let d = 1; d <= daysCount; d++) {
+    const dateStr = formatDateISO(state.currentYear, state.currentMonth, d);
     if (state.roster[dateStr]) {
-      state.roster[dateStr][activeConfigEmpId] = 'PTO';
+      const isSelected = tempPtoDays.includes(dateStr);
+      if (isSelected) {
+        // 被選中：依據新規則設定為 OFF 或 PTO
+        const leaveType = getLeaveTypeForPtoDay(state.staff[empIndex], dateStr, tempPtoDays);
+        state.roster[dateStr][activeConfigEmpId] = leaveType;
+      } else {
+        // 未被選中：如果以前是選中的指定休假日 (在 oldPto 中)，現在被取消了，改回預設班別 (若是固定休假日則改回 OFF)
+        if (oldPto.includes(dateStr)) {
+          const dayOfWeek = getDayOfWeek(state.currentYear, state.currentMonth, d);
+          const isDefaultOff = tempDefaultOffDays.includes(dayOfWeek);
+          state.roster[dateStr][activeConfigEmpId] = isDefaultOff ? 'OFF' : (state.staff[empIndex].defaultWorkShift || 'A');
+        }
+      }
     }
-  });
+  }
 
   state.hasUnsavedChanges = true;
   rebuildSortedStaffIds();
