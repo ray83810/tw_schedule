@@ -283,6 +283,39 @@ function updateDaysOffFromState() {
   }
 }
 
+// 取得針對「班表總覽」排序後的客服人員陣列 (不更動 state.staff 原始順序)
+// 排序規則：班別優先級 (A > B > C > D...) -> 預設休假天分組優先級 (日一 > 三四 > 五六 > 其它) -> 姓名 A-Z 穩定排序
+function getSortedStaffForOverview(staffList) {
+  const shiftPriority = {};
+  if (state.shifts) {
+    state.shifts.forEach((s, idx) => { shiftPriority[s.id] = idx; });
+  }
+  
+  return [...staffList].sort((a, b) => {
+    // 1. 班別優先級
+    const pa = shiftPriority[a.defaultWorkShift] ?? 999;
+    const pb = shiftPriority[b.defaultWorkShift] ?? 999;
+    if (pa !== pb) return pa - pb;
+    
+    // 2. 預設休假天分組優先級 (日一 > 三四 > 五六 > 其它)
+    const getOffDaysPriority = (defaultOffDays) => {
+      if (!defaultOffDays || !Array.isArray(defaultOffDays)) return 4;
+      const has = (day) => defaultOffDays.includes(day);
+      if (has(0) && has(1)) return 1; // 休週日週一
+      if (has(3) && has(4)) return 2; // 休週三週四
+      if (has(5) && has(6)) return 3; // 休週五週六
+      return 4;
+    };
+    
+    const pua = getOffDaysPriority(a.defaultOffDays);
+    const pub = getOffDaysPriority(b.defaultOffDays);
+    if (pua !== pub) return pua - pub;
+    
+    // 3. 姓名 A-Z
+    return a.name.localeCompare(b.name);
+  });
+}
+
 // 計算兩班別之間的休息間隔 (小時)
 function calculateRestHours(prevShift, nextShift) {
   if (!prevShift || prevShift.id === 'OFF' || prevShift.id === 'PTO') return 24;
@@ -1094,16 +1127,7 @@ function renderRosterGrid() {
     return;
   }
 
-  // 依預設班別優先級排序：早班 → 晚班 (A→B→C→D)，同班別內依姓名 A-Z
-  const shiftPriority = {};
-  state.shifts.forEach((s, idx) => { shiftPriority[s.id] = idx; });
-  
-  const sortedStaff = [...staffList].sort((a, b) => {
-    const pa = shiftPriority[a.defaultWorkShift] ?? 999;
-    const pb = shiftPriority[b.defaultWorkShift] ?? 999;
-    if (pa !== pb) return pa - pb;
-    return a.name.localeCompare(b.name);
-  });
+  const sortedStaff = getSortedStaffForOverview(staffList);
 
   // --- 1. 產生表頭 (Header Row 1 & 2) ---
   const headerRow = document.createElement('tr');
@@ -1582,13 +1606,27 @@ function renderFairnessDashboard() {
     return { emp, counts };
   });
 
-  // 排序：依預設班別優先級（A→B→C→D），同班別內依姓名 A-Z（與班表總覽一致）
+  // 排序：依預設班別優先級與預設休假天排序（與班表總覽一致）
   const shiftPriority = {};
   state.shifts.forEach((s, idx) => { shiftPriority[s.id] = idx; });
   stats.sort((a, b) => {
     const pa = shiftPriority[a.emp.defaultWorkShift] ?? 999;
     const pb = shiftPriority[b.emp.defaultWorkShift] ?? 999;
     if (pa !== pb) return pa - pb;
+    
+    const getOffDaysPriority = (defaultOffDays) => {
+      if (!defaultOffDays || !Array.isArray(defaultOffDays)) return 4;
+      const has = (day) => defaultOffDays.includes(day);
+      if (has(0) && has(1)) return 1;
+      if (has(3) && has(4)) return 2;
+      if (has(5) && has(6)) return 3;
+      return 4;
+    };
+    
+    const pua = getOffDaysPriority(a.emp.defaultOffDays);
+    const pub = getOffDaysPriority(b.emp.defaultOffDays);
+    if (pua !== pub) return pua - pub;
+    
     return a.emp.name.localeCompare(b.emp.name);
   });
 
@@ -2528,16 +2566,7 @@ function exportRosterToExcel() {
   const staffList = state.staff;
   const shiftList = state.shifts;
   
-  // 依預設班別優先級排序：早班 → 晚班 (A→B→C→D)，同班別內依姓名 A-Z
-  const shiftPriority = {};
-  state.shifts.forEach((s, idx) => { shiftPriority[s.id] = idx; });
-  
-  const sortedStaff = [...staffList].sort((a, b) => {
-    const pa = shiftPriority[a.defaultWorkShift] ?? 999;
-    const pb = shiftPriority[b.defaultWorkShift] ?? 999;
-    if (pa !== pb) return pa - pb;
-    return a.name.localeCompare(b.name);
-  });
+  const sortedStaff = getSortedStaffForOverview(staffList);
 
   const monthEng = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][state.currentMonth];
   const standardOff = state.daysOff;
