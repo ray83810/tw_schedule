@@ -1534,6 +1534,44 @@ h1, h2, h3, h4 {
   box-shadow: 0 0 6px var(--accent-red-glow);
 }
 
+.modal-cal-day.pto-off-active {
+  background: rgba(16, 185, 129, 0.12) !important;
+  color: #34d399 !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.4);
+}
+
+.modal-cal-day.pto-default-off {
+  background: rgba(107, 114, 128, 0.08) !important;
+  color: #9ca3af !important;
+  border-color: rgba(107, 114, 128, 0.15) !important;
+  cursor: default;
+}
+
+.modal-cal-day-badge {
+  font-size: 0.55rem;
+  padding: 1px 4px;
+  border-radius: 4px;
+  margin-top: 4px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.pto-active .modal-cal-day-badge {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+.pto-off-active .modal-cal-day-badge {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.pto-default-off .modal-cal-day-badge {
+  background: rgba(107, 114, 128, 0.15);
+  color: #9ca3af;
+}
+
 .modal-cal-day-name {
   font-size: 0.6rem;
   color: var(--text-muted);
@@ -1542,6 +1580,10 @@ h1, h2, h3, h4 {
 
 .modal-cal-day.pto-active .modal-cal-day-name {
   color: var(--shift-pto-text);
+}
+
+.modal-cal-day.pto-off-active .modal-cal-day-name {
+  color: #34d399;
 }
 
 /* Weekly Shift Preferences modal table */

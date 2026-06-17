@@ -93,6 +93,28 @@ def get_boundary(emp_id, year, month):
         else: break
     return last_shift, cons
 
+def is_default_off_days_compliant(roster, emp_id, year, month):
+    emp = next(e for e in state['staff'] if e['id'] == emp_id)
+    dods = emp.get('defaultOffDays', [])
+    if not dods or len(dods) != 2: return True
+    
+    d1, d2 = dods[0], dods[1]
+    dc = get_days_in_month(year, month)
+    
+    worked_on_d1 = False
+    worked_on_d2 = False
+    
+    for d in range(1, dc+1):
+        dstr = format_date_iso(year, month, d)
+        dow = get_day_of_week(year, month, d)
+        shift_id = roster.get(dstr, {}).get(emp_id, 'OFF')
+        is_working = shift_id not in ('OFF', 'PTO', 'LOA', 'AM_PTO', 'PM_PTO')
+        if is_working:
+            if dow == d1: worked_on_d1 = True
+            if dow == d2: worked_on_d2 = True
+            
+    return not (worked_on_d1 and worked_on_d2)
+
 def is_compliant_max(roster_copy, emp_id, max_days=5):
     _, cons = get_boundary(emp_id, state['currentYear'], state['currentMonth'])
     dc = get_days_in_month(state['currentYear'], state['currentMonth'])
@@ -103,7 +125,34 @@ def is_compliant_max(roster_copy, emp_id, max_days=5):
         else:
             cons += 1
             if cons > max_days: return False
+            
+    if not is_default_off_days_compliant(roster_copy, emp_id, state['currentYear'], state['currentMonth']):
+        return False
+        
     return True
+
+def get_leave_type_for_pto_day(emp, date_str):
+    parts = date_str.split('-')
+    y, m = int(parts[0]), int(parts[1]) - 1
+    d = int(parts[2])
+    
+    dow = get_day_of_week(y, m, d)
+    dods = emp.get('defaultOffDays', [])
+    if dow in dods: return 'OFF'
+    
+    dc = get_days_in_month(y, m)
+    def_offs_count = sum(1 for day in range(1, dc+1) if get_day_of_week(y, m, day) in dods)
+    
+    surplus = max(0, state['daysOff'] - def_offs_count)
+    
+    non_default_pto = [p for p in emp.get('pto', []) if get_day_of_week(y, m, int(p.split('-')[2])) not in dods]
+    non_default_pto.sort()
+    
+    if date_str in non_default_pto:
+        idx = non_default_pto.index(date_str)
+        if idx < surplus: return 'OFF'
+        
+    return 'PTO'
 
 # ========== Auto Scheduler ==========
 def run_auto_scheduler():
@@ -123,7 +172,9 @@ def run_auto_scheduler():
             dstr = format_date_iso(y, m, d)
             dow = get_day_of_week(y, m, d)
             is_def_off = dow in (emp.get('defaultOffDays') or [])
-            if dstr in pto_set: er[dstr] = 'PTO'
+            if dstr in pto_set:
+                leave_type = get_leave_type_for_pto_day(emp, dstr)
+                er[dstr] = leave_type
             elif is_def_off: er[dstr] = 'OFF'
             else: er[dstr] = None
 
@@ -139,7 +190,7 @@ def run_auto_scheduler():
                 else:
                     cons += 1
 
-        # Step 3: adjust off days (WITH recountOff fix)
+        # Step 3: adjust off days
         def recount():
             return sum(1 for d in range(1,dc+1) if er[format_date_iso(y,m,d)] == 'OFF')
         
@@ -157,13 +208,42 @@ def run_auto_scheduler():
                 er[dstr] = 'OFF'
         elif cur_off > target:
             excess = cur_off - target
+            
+            dods = emp.get('defaultOffDays', [])
+            protected_dow = -1
+            if len(dods) == 2:
+                d1, d2 = dods[0], dods[1]
+                def get_dow_demand(dow):
+                    total = 0
+                    for d in range(1, dc+1):
+                        dow_of_day = get_day_of_week(y, m, d)
+                        if dow_of_day == dow:
+                            is_wknd = dow_of_day in (0, 6)
+                            for sh in state['shifts']:
+                                if sh['id'] == 'D': continue
+                                tc = state['coverageTargets'].get(sh['id'], {'weekday':0,'weekend':0})
+                                total += tc['weekend'] if is_wknd else tc['weekday']
+                    return total
+                
+                demand1 = get_dow_demand(d1)
+                demand2 = get_dow_demand(d2)
+                if demand1 >= demand2:
+                    protected_dow = d2
+                else:
+                    protected_dow = d1
+            
             non_def, def_offs = [], []
             for d in range(1, dc+1):
                 dstr = format_date_iso(y, m, d)
                 if er[dstr] == 'OFF':
                     dow = get_day_of_week(y, m, d)
-                    if dow in (emp.get('defaultOffDays') or []): def_offs.append(dstr)
-                    else: non_def.append(dstr)
+                    if dow in dods:
+                        if len(dods) == 2 and dow == protected_dow:
+                            pass
+                        else:
+                            def_offs.append(dstr)
+                    else:
+                        non_def.append(dstr)
             random.shuffle(non_def)
             random.shuffle(def_offs)
             all_cands = non_def + def_offs
@@ -295,12 +375,21 @@ for emp in state['staff']:
     off_cnt = sum(1 for d in range(1,dc+1) if state['roster'][format_date_iso(2026,5,d)].get(emp['id']) == 'OFF')
     check(off_cnt == 9, f"{emp['name']}: OFF = {off_cnt} (expected 9)")
 
-# ----- TEST 3: PTO preserved -----
-print('\n📋 TEST 3: PTO 特休日保留')
+# ----- TEST 3: 指定休假日規則驗證 -----
+print('\n📋 TEST 3: 指定休假日規則驗證 (撞期與額度)')
+# 測試 A: 當 daysOff = 9, 週休 8 天, 多出 1 天額度
+init_state(days_off=9)
+run_auto_scheduler()
 jk = next(e for e in state['staff'] if e['name']=='Jian Kai Ding')
-check(state['roster']['2026-06-15'].get(jk['id']) == 'PTO', 'Jian Kai Ding 6/15 = PTO')
+check(state['roster']['2026-06-15'].get(jk['id']) == 'OFF', 'Jian Kai Ding 6/15 = OFF (有額度，顯示一般休假)')
 ev = next(e for e in state['staff'] if e['name']=='Evan Liu')
-check(state['roster']['2026-06-20'].get(ev['id']) == 'PTO', 'Evan Liu 6/20 = PTO')
+check(state['roster']['2026-06-20'].get(ev['id']) == 'OFF', 'Evan Liu 6/20 = OFF (撞固定休假日，顯示一般休假)')
+
+# 測試 B: 當 daysOff = 8, 週休 8 天, 無多餘額度
+init_state(days_off=8)
+run_auto_scheduler()
+jk = next(e for e in state['staff'] if e['name']=='Jian Kai Ding')
+check(state['roster']['2026-06-15'].get(jk['id']) == 'PTO', 'Jian Kai Ding 6/15 = PTO (無額度，顯示為特休)')
 
 # ----- TEST 4: 7休1 -----
 print('\n📋 TEST 4: 勞基法 7休1 (連續≤6天)')

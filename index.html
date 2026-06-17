@@ -305,7 +305,7 @@
   <div id="modal-employee-config" class="modal-overlay display-none">
     <div class="modal-card">
       <div class="modal-header">
-        <h3 id="modal-employee-title">編輯員工休假預設與特休</h3>
+        <h3 id="modal-employee-title">編輯員工固定休假與指定休假日</h3>
         <button class="modal-close" id="btn-close-modal">&times;</button>
       </div>
       
@@ -315,9 +315,9 @@
         <div class="modal-section">
           <h4>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="section-icon"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            本月特休與指定請假天數 (PTO)
+            指定休假日
           </h4>
-          <p class="section-desc">直接點選日期，選中的日期在自動排班時會**強制安排休假 (OFF)**。</p>
+          <p class="section-desc">直接點選日期。若與固定休假日撞期或有額外休假額度，則當天顯示為一般休假 (OFF)；若無額度則顯示為特休。</p>
           
           <div class="modal-calendar-container">
             <div class="modal-calendar-grid" id="modal-pto-calendar">

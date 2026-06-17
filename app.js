@@ -316,6 +316,77 @@ function getSortedStaffForOverview(staffList) {
   });
 }
 
+// 取得指定休假日在當前月份的假別 (OFF 或 PTO)
+function getLeaveTypeForPtoDay(emp, dateStr, customPtoList = null) {
+  const day = new Date(dateStr);
+  const year = day.getFullYear();
+  const month = day.getMonth(); // 0-indexed
+  
+  // 1. 如果與固定休假日撞到，一定是 OFF
+  const dayOfWeek = day.getDay(); // 0=Sun, 6=Sat
+  const isDefaultOff = emp.defaultOffDays && emp.defaultOffDays.includes(dayOfWeek);
+  if (isDefaultOff) return 'OFF';
+  
+  // 2. 計算當月固定休假天數 D
+  const daysCount = getDaysInMonth(year, month);
+  let defaultOffDaysCount = 0;
+  for (let d = 1; d <= daysCount; d++) {
+    const dow = getDayOfWeek(year, month, d);
+    if (emp.defaultOffDays && emp.defaultOffDays.includes(dow)) {
+      defaultOffDaysCount++;
+    }
+  }
+  
+  // 3. 計算多餘休假日 S
+  const surplus = Math.max(0, state.daysOff - defaultOffDaysCount);
+  
+  // 4. 篩選出所有「非固定休假日」的已選日期，並按日期排序
+  const listToUse = customPtoList || emp.pto || [];
+  const nonDefaultPtoDays = listToUse
+    .filter(d => {
+      const ptoDow = new Date(d).getDay();
+      return !(emp.defaultOffDays && emp.defaultOffDays.includes(ptoDow));
+    })
+    .sort();
+  
+  // 5. 比較當前 dateStr 索引與多餘額度
+  const idx = nonDefaultPtoDays.indexOf(dateStr);
+  if (idx !== -1 && idx < surplus) {
+    return 'OFF';
+  }
+  return 'PTO';
+}
+
+// 檢查特定員工是否滿足「兩天固定休假日中至少有一天整個月完全不被動到」的規定
+function isEmployeeDefaultOffDaysConstraintCompliant(roster, empId, year, month) {
+  const emp = state.staff.find(e => e.id === empId);
+  if (!emp || !emp.defaultOffDays || emp.defaultOffDays.length !== 2) return true;
+  
+  const d1 = emp.defaultOffDays[0];
+  const d2 = emp.defaultOffDays[1];
+  const daysCount = getDaysInMonth(year, month);
+  
+  let workedOnD1 = false;
+  let workedOnD2 = false;
+  
+  for (let d = 1; d <= daysCount; d++) {
+    const dateStr = formatDateISO(year, month, d);
+    const dayOfWeek = getDayOfWeek(year, month, d);
+    
+    // 檢查該員本日是否排班 (非 OFF/PTO/LOA/AM_PTO/PM_PTO)
+    const shiftId = roster[dateStr] ? roster[dateStr][empId] : 'OFF';
+    const isWorking = (shiftId !== 'OFF' && shiftId !== 'PTO' && shiftId !== 'LOA' && shiftId !== 'AM_PTO' && shiftId !== 'PM_PTO');
+    
+    if (isWorking) {
+      if (dayOfWeek === d1) workedOnD1 = true;
+      if (dayOfWeek === d2) workedOnD2 = true;
+    }
+  }
+  
+  // 不能兩天都被動到
+  return !(workedOnD1 && workedOnD2);
+}
+
 // 計算兩班別之間的休息間隔 (小時)
 function calculateRestHours(prevShift, nextShift) {
   if (!prevShift || prevShift.id === 'OFF' || prevShift.id === 'PTO') return 24;
@@ -460,15 +531,16 @@ function auditRoster(year, month) {
         }
       }
 
-      // 3. PTO 強制休假確認 (是否有排定特休卻被排上班的情況)
-      if (employee.pto.includes(dateStr) && shiftId !== 'PTO' && shiftId !== 'AM_PTO' && shiftId !== 'PM_PTO') {
+      // 3. 指定休假日工作衝突確認 (是否有排定指定休假日卻被排上班的情況)
+      const leaveTypes = ['OFF', 'PTO', 'LOA', 'AM_PTO', 'PM_PTO'];
+      if (employee.pto.includes(dateStr) && !leaveTypes.includes(shiftId)) {
         warnings.push({
           type: 'pto_conflict',
           severity: 'error',
           employeeId: employee.id,
           employeeName: employee.name,
           date: dateStr,
-          message: `${employee.name} 於本日已申請特休 (PTO)，卻被指派了「${shiftMap.get(shiftId)?.name || shiftId}」，請予以排休！`
+          message: `${employee.name} 於本日已設定為指定休假日，卻被指派了「${shiftMap.get(shiftId)?.name || shiftId}」，請予以排休！`
         });
       }
 
@@ -484,14 +556,21 @@ function auditRoster(year, month) {
         employeeName: employee.name,
         message: `${employee.name} 本月排定一般休假共 ${regularOffDays} 天，少於設定的固定休假天數 ${state.daysOff} 天（相差 ${state.daysOff - regularOffDays} 天）。`
       });
-    } else if (regularOffDays > state.daysOff) {
-      warnings.push({
-        type: 'off_days_excess',
-        severity: 'info',
-        employeeId: employee.id,
-        employeeName: employee.name,
-        message: `${employee.name} 本月排定一般休假共 ${regularOffDays} 天，多於設定的固定休假天數 ${state.daysOff} 天。`
-      });
+    }
+    
+    // 5. 兩天固定休假日中至少有一天整個月完全不被動到
+    if (employee.defaultOffDays && employee.defaultOffDays.length === 2) {
+      if (!isEmployeeDefaultOffDaysConstraintCompliant(state.roster, employee.id, year, month)) {
+        const d1 = employee.defaultOffDays[0];
+        const d2 = employee.defaultOffDays[1];
+        warnings.push({
+          type: 'default_off_conflict',
+          severity: 'error',
+          employeeId: employee.id,
+          employeeName: employee.name,
+          message: `${employee.name} 的固定休假日 (週${getDayOfWeekName(d1)}、週${getDayOfWeekName(d2)}) 本月皆有調班排班記錄。依規定，兩天固定休假日中必須至少有一種整個月完全不被動到。`
+        });
+      }
     }
   });
 
@@ -587,8 +666,13 @@ function runAutoScheduler() {
       const isDefaultOff = emp.defaultOffDays && emp.defaultOffDays.includes(dayOfWeek);
       
       if (ptoSet.has(dateStr)) {
-        empRoster[dateStr] = 'PTO';
-        ptoDates.push(dateStr);
+        const leaveType = getLeaveTypeForPtoDay(emp, dateStr);
+        empRoster[dateStr] = leaveType;
+        if (leaveType === 'PTO') {
+          ptoDates.push(dateStr);
+        } else {
+          offDates.push(dateStr);
+        }
       } else if (isDefaultOff) {
         empRoster[dateStr] = 'OFF';
         offDates.push(dateStr);
@@ -658,6 +742,37 @@ function runAutoScheduler() {
       // 假太多：將多餘的 OFF 扣除（變回上班 null）
       let excess = currentOffCount - targetOff;
       
+      // 判斷要保護 d1 還是 d2 (固定雙休保護規則)
+      let protectedDow = -1;
+      if (emp.defaultOffDays && emp.defaultOffDays.length === 2) {
+        const d1 = emp.defaultOffDays[0];
+        const d2 = emp.defaultOffDays[1];
+        
+        const getDowDemand = (dow) => {
+          let total = 0;
+          for (let d = 1; d <= daysCount; d++) {
+            const dayOfWeek = getDayOfWeek(year, month, d);
+            if (dayOfWeek === dow) {
+              const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+              state.shifts.forEach(s => {
+                if (s.id === 'D') return;
+                const targets = state.coverageTargets[s.id] || { weekday: 0, weekend: 0 };
+                total += isWeekend ? targets.weekend : targets.weekday;
+              });
+            }
+          }
+          return total;
+        };
+        
+        const demand1 = getDowDemand(d1);
+        const demand2 = getDowDemand(d2);
+        if (demand1 >= demand2) {
+          protectedDow = d2; // d1 需求較高，保護 d2 (整個月的 d2 都維持 OFF)
+        } else {
+          protectedDow = d1; // d2 需求較高，保護 d1 (整個月 the d1 都維持 OFF)
+        }
+      }
+      
       // 區分非預設週休與預設週休的 OFF
       const eligibleNonDefaultOffs = [];
       const eligibleDefaultOffs = [];
@@ -668,7 +783,12 @@ function runAutoScheduler() {
           const dayOfWeek = getDayOfWeek(year, month, d);
           const isDefaultOff = emp.defaultOffDays && emp.defaultOffDays.includes(dayOfWeek);
           if (isDefaultOff) {
-            eligibleDefaultOffs.push(dateStr);
+            // 如果這天是受保護的固定休假日，則不列入「可扣除」的候選名單，保護它維持為 OFF！
+            if (emp.defaultOffDays && emp.defaultOffDays.length === 2 && dayOfWeek === protectedDow) {
+              // 被保護，不能扣除
+            } else {
+              eligibleDefaultOffs.push(dateStr);
+            }
           } else {
             eligibleNonDefaultOffs.push(dateStr);
           }
@@ -969,6 +1089,11 @@ function isEmployeeRosterCompliant(rosterCopy, daysCount, empId) {
     prevId = shiftId;
   }
 
+  // 4. 兩天固定休假日中至少有一天整個月完全不被動到
+  if (!isEmployeeDefaultOffDaysConstraintCompliant(rosterCopy, empId, state.currentYear, state.currentMonth)) {
+    return false;
+  }
+
   return true;
 }
 
@@ -1087,6 +1212,11 @@ function checkLaborComplianceForSwap(rosterCopy, daysCount, empId1, empId2) {
       }
 
       prevId = shiftId;
+    }
+    
+    // 兩天固定休假日中至少有一天整個月完全不被動到
+    if (!isEmployeeDefaultOffDaysConstraintCompliant(rosterCopy, empId, state.currentYear, state.currentMonth)) {
+      warnings.push({ severity: 'error' });
     }
   });
   return warnings;
@@ -1995,7 +2125,7 @@ function openEmployeeConfigModal(empId) {
   const emp = state.staff.find(e => e.id === empId);
   if (!emp) return;
 
-  document.getElementById('modal-employee-title').textContent = `編輯 ${emp.name} 的休假預設與特休`;
+  document.getElementById('modal-employee-title').textContent = `編輯 ${emp.name} 的固定休假與指定休假日`;
   
   // 複製一份暫存檔，等按下儲存才套用
   tempPtoDays = [...emp.pto];
@@ -2042,26 +2172,46 @@ function renderModalPtoCalendar(emp) {
   for (let d = 1; d <= daysCount; d++) {
     const dateStr = formatDateISO(state.currentYear, state.currentMonth, d);
     const dayOfWeek = getDayOfWeek(state.currentYear, state.currentMonth, d);
-    const isPto = tempPtoDays.includes(dateStr);
+    const isSelected = tempPtoDays.includes(dateStr);
+
+    let label = '';
+    let cellClass = 'modal-cal-day';
+    
+    if (isSelected) {
+      const leaveType = getLeaveTypeForPtoDay(emp, dateStr, tempPtoDays);
+      if (leaveType === 'OFF') {
+        label = 'OFF';
+        cellClass += ' pto-off-active';
+      } else {
+        label = '特休';
+        cellClass += ' pto-active';
+      }
+    } else {
+      const isDefaultOff = emp.defaultOffDays && emp.defaultOffDays.includes(dayOfWeek);
+      if (isDefaultOff) {
+        label = '預設';
+        cellClass += ' pto-default-off';
+      }
+    }
 
     const dayCell = document.createElement('div');
-    dayCell.className = `modal-cal-day ${isPto ? 'pto-active' : ''}`;
+    dayCell.className = cellClass;
     dayCell.dataset.date = dateStr;
     dayCell.innerHTML = `
       <span>${d}</span>
       <span class="modal-cal-day-name">${getDayOfWeekName(dayOfWeek)}</span>
+      ${label ? `<span class="modal-cal-day-badge">${label}</span>` : ''}
     `;
 
-    // 點選切換 PTO 狀態
+    // 點選切換指定休假日狀態並重繪月曆
     dayCell.addEventListener('click', function() {
       const targetDate = this.dataset.date;
       if (tempPtoDays.includes(targetDate)) {
         tempPtoDays = tempPtoDays.filter(x => x !== targetDate);
-        this.classList.remove('pto-active');
       } else {
         tempPtoDays.push(targetDate);
-        this.classList.add('pto-active');
       }
+      renderModalPtoCalendar(emp);
     });
 
     container.appendChild(dayCell);
